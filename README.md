@@ -27,7 +27,7 @@ python3 -m phonekb
 
 The program will:
 1. Print a QR code in the terminal and save `qr.png`
-2. Show a URL like `http://192.168.1.100:8765/?t=...`
+2. Show a URL like `http://192.168.1.100:8765/?t=...#k=...`
 3. On first run, GNOME will ask for "Remote Desktop" permission (click Allow/Share)
 
 Scan the QR code with your phone, type text (or use Gboard voice), and press "Send to computer". The text appears in whatever window has focus on the PC.
@@ -36,6 +36,7 @@ Scan the QR code with your phone, type text (or use Gboard voice), and press "Se
 
 - `--host <IP>`: Override the detected LAN IP
 - `--port <PORT>`: Change the port (default: 8765)
+- `--dry-run`: Log received messages instead of typing them (no portal permission needed)
 
 ## Features
 
@@ -54,7 +55,7 @@ Scan the QR code with your phone, type text (or use Gboard voice), and press "Se
 - **Live mode focus**: You must keep the target window focused on the PC while typing in live mode — clicking elsewhere will cause text to appear in the wrong place
 - **Terminal pasting**: Standard terminals use Ctrl+Shift+V, so pasting into terminals may not work yet
 - **Emoji handling**: Complex emoji made of multiple Unicode code points may require extra backspaces in live mode
-- **Plain HTTP**: Traffic is unencrypted (local network only)
+- **Plain HTTP page**: The page itself is served over HTTP; the WebSocket messages are end-to-end encrypted (see Security)
 - **Wayland/GNOME only**: Tested on Ubuntu 26.04.1 with GNOME on Wayland
 - **Single connection**: Only one phone can connect at a time
 
@@ -64,7 +65,15 @@ Scan the QR code with your phone, type text (or use Gboard voice), and press "Se
 2. **Text injection**: Places text on the clipboard with `wl-copy` and sends Ctrl+V via the portal
 3. **Special keys**: Sends X11 keysyms directly through the portal
 4. **Restore token**: Saves a token in `~/.config/phonekb/restore_token` so the permission dialog only appears once
-5. **WebSocket**: Phone connects via WebSocket with a random token for basic security
+5. **WebSocket**: Phone connects via WebSocket with a random token; every message is encrypted (see Security)
+
+## Security
+
+- Each run creates a random token (`?t=`) and a random 32-byte key (`#k=`, base64url). The key is in the URL fragment, which the browser never sends over the network; it only reaches the phone through the QR code.
+- Every WebSocket message is encrypted with NaCl secretbox (PyNaCl on the PC, a local copy of tweetnacl 1.0.3 on the phone, no CDN).
+- The PC first sends an encrypted challenge with a session id. The phone must answer with an encrypted hello; every later message carries that session id and an increasing counter. Plaintext, a wrong key, replayed frames and frames from another session close the connection.
+- 5 bad tokens from one IP within 60 s block that IP for 60 s.
+- A desktop notification appears when a phone connects.
 
 ## Troubleshooting
 

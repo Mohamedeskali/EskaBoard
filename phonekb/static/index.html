@@ -59,6 +59,11 @@
         .segmented button.active { background: var(--accent); color: #fff; }
         .icon-btn { width: 38px; height: 38px; flex-shrink: 0; font-size: 18px; background: var(--key); }
         .icon-btn:active { background: var(--key-down); }
+        .notice {
+            flex-shrink: 0; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+            background: var(--bad); color: #fff;
+        }
+        .notice[hidden] { display: none; }
 
         /* One row of quick keys */
         .quick-keys { display: flex; gap: 4px; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -104,6 +109,8 @@
         <button type="button" class="icon-btn" id="new-btn" aria-label="جديد" title="جديد">↺</button>
     </div>
 
+    <div class="notice" id="notice" role="alert" hidden></div>
+
     <div class="quick-keys" dir="ltr">
         <button type="button" class="key-btn" data-key="enter" aria-label="Enter">↵</button>
         <button type="button" class="key-btn" data-key="backspace" aria-label="Backspace">⌫</button>
@@ -123,6 +130,7 @@
 
     <textarea id="text" dir="auto" placeholder="اكتب هنا أو استخدم الصوت..."></textarea>
 
+    <script src="nacl-fast.min.js"></script>
     <script>
         const textarea = document.getElementById('text');
         const modeButtons = document.querySelectorAll('.segmented button');
@@ -132,6 +140,7 @@
         const sendRow = document.getElementById('send-row');
         const sendBtn = document.getElementById('send');
         const autoEnter = document.getElementById('autoenter');
+        const notice = document.getElementById('notice');
         let ws = null;
         let reconnectDelay = 1000;
 
@@ -171,12 +180,88 @@
         updateMode();
         updateStatusText(false);
 
+        // ---- Encryption: NaCl secretbox, key from the #k= fragment ----
+        // Every frame is base64(nonce || secretbox(JSON)). The server first
+        // sends a challenge with a session id; we answer with an encrypted
+        // hello, and every message carries that sid and an increasing ctr.
+        const key = parseKey();
+        let ready = false;   // handshake done
+        let stopped = false; // don't reconnect
+        let sid = null;
+        let ctr = 0;
+
+        function parseKey() {
+            const m = location.hash.match(/^#k=([A-Za-z0-9_-]+)$/);
+            if (!m || typeof nacl === 'undefined') return null;
+            try {
+                const b64 = m[1].replace(/-/g, '+').replace(/_/g, '/');
+                const k = fromB64(b64 + '='.repeat((4 - b64.length % 4) % 4));
+                return k.length === nacl.secretbox.keyLength ? k : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function toB64(bytes) {
+            let bin = '';
+            for (let i = 0; i < bytes.length; i += 0x8000) {
+                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+            }
+            return btoa(bin);
+        }
+
+        function fromB64(text) {
+            return Uint8Array.from(atob(text), c => c.charCodeAt(0));
+        }
+
+        function seal(obj) {
+            const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+            const box = nacl.secretbox(new TextEncoder().encode(JSON.stringify(obj)), nonce, key);
+            const frame = new Uint8Array(nonce.length + box.length);
+            frame.set(nonce);
+            frame.set(box, nonce.length);
+            return toB64(frame);
+        }
+
+        function unseal(text) {
+            try {
+                const raw = fromB64(text);
+                const n = nacl.secretbox.nonceLength;
+                const plain = nacl.secretbox.open(raw.subarray(n), raw.subarray(0, n), key);
+                return plain ? JSON.parse(new TextDecoder().decode(plain)) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function stop(message) {
+            stopped = true;
+            ready = false;
+            updateStatusText(false);
+            notice.textContent = message;
+            notice.hidden = false;
+        }
+
         function connect() {
+            if (stopped) return;
+            ready = false;
             const token = new URLSearchParams(location.search).get('t');
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${location.host}/ws?t=${token}`);
+            const sock = new WebSocket(`${protocol}//${location.host}/ws?t=${token}`);
+            ws = sock;
 
-            ws.onopen = () => {
+            sock.onmessage = (ev) => {
+                if (ready) return;  // the server only sends the challenge
+                const msg = unseal(ev.data);
+                if (!msg || msg.type !== 'challenge' || typeof msg.sid !== 'string') {
+                    stop('مفتاح التشفير غير صحيح — امسح رمز QR من جديد');
+                    sock.close();
+                    return;
+                }
+                sid = msg.sid;
+                ctr = 0;
+                ready = true;
+                send({ type: 'hello' });
                 updateStatusText(true);
                 reconnectDelay = 1000;
                 // Clear on reconnect
@@ -185,20 +270,43 @@
                 seq = 0;
             };
 
-            ws.onclose = () => {
+            sock.onclose = (ev) => {
+                if (ws !== sock) return;
+                ready = false;
+                if (ev.code === 4001) return stop('رفض الحاسوب الرسائل — أعد تحميل الصفحة');
+                if (ev.code === 4002) return stop('اتصل هاتف آخر — أعد تحميل الصفحة للعودة');
+                if (ev.code === 4003) return stop('تم إنشاء رمز QR جديد — امسحه');
+                if (stopped) return;
                 updateStatusText(false);
-                setTimeout(connect, reconnectDelay);
-                reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+                retry();
             };
 
-            ws.onerror = () => {
+            sock.onerror = () => {
                 updateStatusText(false);
             };
         }
 
+        // A rejected token looks like a network error to WebSocket, so ask
+        // for the page once: 403 means this QR is no longer valid.
+        async function retry() {
+            try {
+                const r = await fetch(location.pathname + location.search, { method: 'HEAD', cache: 'no-store' });
+                if (r.status === 403) return stop('انتهت صلاحية هذا الرمز — امسح رمز QR الجديد');
+                if (r.status === 429) {
+                    setTimeout(connect, 60000);
+                    return;
+                }
+            } catch (e) {
+                // PC not reachable: keep retrying
+            }
+            setTimeout(connect, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+        }
+
         function send(data) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(data));
+            if (ready && ws && ws.readyState === WebSocket.OPEN) {
+                ctr++;
+                ws.send(seal(Object.assign({}, data, { sid: sid, ctr: ctr })));
             }
         }
 
@@ -306,7 +414,13 @@
         }
 
         textarea.focus();
-        connect();
+        if (key) {
+            connect();
+        } else {
+            stop(typeof nacl === 'undefined'
+                ? 'تعذر تحميل مكتبة التشفير — أعد تحميل الصفحة'
+                : 'لا يوجد مفتاح تشفير في الرابط — امسح رمز QR');
+        }
     </script>
 </body>
 </html>

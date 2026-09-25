@@ -12,7 +12,8 @@ from aiohttp import web
 
 from .netinfo import get_lan_ip
 from .injector import Injector, close_portal
-from .server import Server, inject_worker, bridge_queue
+from .server import Server, DryRunInjector, inject_worker, bridge_queue
+from .secure import new_key, key_to_b64url
 
 
 def print_qr(url):
@@ -29,15 +30,16 @@ def print_qr(url):
     img = qr.make_image(fill_color="black", back_color="white")
     png_path = Path.cwd() / "qr.png"
     img.save(png_path)
+    png_path.chmod(0o600)  # contains the encryption key
     print(f"\nQR code saved: {png_path}")
     print(f"URL: {url}\n")
 
 
-async def main_async(host, port, token):
+async def main_async(host, port, token, key, dry_run=False):
     """Run the server."""
     # Start server first (before portal session)
     injector = None
-    server = Server(injector, token)
+    server = Server(injector, token, key)
     app = server.create_app()
     
     runner = web.AppRunner(app)
@@ -46,7 +48,10 @@ async def main_async(host, port, token):
     await site.start()
     
     print(f"Server running on {host}:{port}")
-    print("Starting portal session in background...")
+    if dry_run:
+        print("Dry run: messages are only logged, nothing is typed")
+    else:
+        print("Starting portal session in background...")
     
     # SIGTERM takes the same shutdown path as Ctrl+C (cancels this task)
     loop = asyncio.get_running_loop()
@@ -56,7 +61,10 @@ async def main_async(host, port, token):
     try:
         # Start portal session in background
         try:
-            injector = await loop.run_in_executor(None, Injector)
+            if dry_run:
+                injector = DryRunInjector()
+            else:
+                injector = await loop.run_in_executor(None, Injector)
             server.injector = injector
         except Exception as e:
             print(f"\n*** Portal session failed: {e}")
@@ -86,16 +94,20 @@ def main():
     parser = argparse.ArgumentParser(description="Phone keyboard for Linux PC")
     parser.add_argument("--host", default=None, help="Host IP (default: auto-detect LAN IP)")
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Log received messages instead of typing them (no portal)")
     args = parser.parse_args()
     
     host = args.host or get_lan_ip()
     token = secrets.token_urlsafe(16)
-    url = f"http://{host}:{args.port}/?t={token}"
+    key = new_key()
+    # The key travels only in the fragment, which browsers never send
+    url = f"http://{host}:{args.port}/?t={token}#k={key_to_b64url(key)}"
     
     print_qr(url)
     
     try:
-        result = asyncio.run(main_async(host, args.port, token))
+        result = asyncio.run(main_async(host, args.port, token, key, args.dry_run))
         return result or 0
     except (KeyboardInterrupt, asyncio.CancelledError):
         return 0
