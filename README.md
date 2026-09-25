@@ -32,11 +32,26 @@ The program will:
 
 Scan the QR code with your phone, type text (or use Gboard voice), and press "Send to computer". The text appears in whatever window has focus on the PC.
 
+### Desktop window
+
+```bash
+python3 -m phonekb --gui                # window with the QR code and status
+python3 -m phonekb --install-desktop    # adds "لوحة الهاتف" to the GNOME app grid
+```
+
+The window shows the QR code, whether the phone is connected, and whether typing is ready.
+- **QR جديد**: new token and key; the phone on the old QR is disconnected and must scan again
+- **إيقاف**: stops the server and closes the portal session
+
+The launcher (`~/.local/share/applications/org.phonekb.PhoneKB.desktop`) runs the Python that installed it, so run `--install-desktop` from the venv.
+
 ### Options
 
 - `--host <IP>`: Override the detected LAN IP
 - `--port <PORT>`: Change the port (default: 8765)
 - `--dry-run`: Log received messages instead of typing them (no portal permission needed)
+- `--gui`: Open the desktop window instead of printing the QR in the terminal
+- `--install-desktop`: Install the "لوحة الهاتف" launcher for the current user
 
 ## Features
 
@@ -91,4 +106,4 @@ If text doesn't appear:
 - Encryption (HTTPS/WSS)
 - Terminal support (Ctrl+Shift+V detection)
 - Windows support
-- Desktop GUI/tray icon
+- Tray icon

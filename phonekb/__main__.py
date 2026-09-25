@@ -1,19 +1,13 @@
 """Phone keyboard - main entry point."""
 import argparse
 import asyncio
-import secrets
-import signal
 import sys
-import queue
 from pathlib import Path
 
 import qrcode
-from aiohttp import web
 
 from .netinfo import get_lan_ip
-from .injector import Injector, close_portal
-from .server import Server, DryRunInjector, inject_worker, bridge_queue
-from .secure import new_key, key_to_b64url
+from .app import APP_ID, Service
 
 
 def print_qr(url):
@@ -21,11 +15,11 @@ def print_qr(url):
     qr = qrcode.QRCode(border=1)
     qr.add_data(url)
     qr.make()
-    
+
     # Terminal output
     print("\n=== Scan this QR code with your phone ===\n")
     qr.print_ascii(invert=True)
-    
+
     # Save PNG
     img = qr.make_image(fill_color="black", back_color="white")
     png_path = Path.cwd() / "qr.png"
@@ -35,58 +29,31 @@ def print_qr(url):
     print(f"URL: {url}\n")
 
 
-async def main_async(host, port, token, key, dry_run=False):
-    """Run the server."""
-    # Start server first (before portal session)
-    injector = None
-    server = Server(injector, token, key)
-    app = server.create_app()
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, host, port)
-    await site.start()
-    
-    print(f"Server running on {host}:{port}")
-    if dry_run:
-        print("Dry run: messages are only logged, nothing is typed")
-    else:
-        print("Starting portal session in background...")
-    
-    # SIGTERM takes the same shutdown path as Ctrl+C (cancels this task)
-    loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
-    
-    bridge_task = None
-    try:
-        # Start portal session in background
-        try:
-            if dry_run:
-                injector = DryRunInjector()
-            else:
-                injector = await loop.run_in_executor(None, Injector)
-            server.injector = injector
-        except Exception as e:
-            print(f"\n*** Portal session failed: {e}")
-            print("*** Server continues running, but injection will not work.")
-            print("*** Check GNOME Settings -> Privacy -> Remote Desktop\n")
-        
-        # Start injection worker only if portal succeeded
-        if injector:
-            sync_queue = queue.Queue()
-            inject_worker(injector, sync_queue)
-            bridge_task = asyncio.create_task(bridge_queue(server.inject_queue, sync_queue))
-        
-        print("Press Ctrl+C to stop\n")
-        await asyncio.Event().wait()
-    except (asyncio.CancelledError, KeyboardInterrupt):
-        print("\nShutting down...")
-    finally:
-        # Closes the portal session and unblocks a pending permission wait
-        close_portal()
-        if bridge_task:
-            bridge_task.cancel()
-        await runner.cleanup()
+def install_desktop(dry_run=False):
+    """Write a launcher to ~/.local/share/applications (no sudo)."""
+    project = Path(__file__).resolve().parent.parent
+    python = Path(sys.executable)
+    exec_line = f'"{python}" -m phonekb --gui' + (" --dry-run" if dry_run else "")
+    entry = f"""[Desktop Entry]
+Type=Application
+Name=لوحة الهاتف
+Name[en]=Phone Keyboard
+Comment=استخدم هاتفك كلوحة مفاتيح لهذا الحاسوب
+Comment[en]=Use your phone as a keyboard for this PC
+Exec={exec_line}
+Path={project}
+Icon=input-keyboard
+Terminal=false
+Categories=Utility;
+StartupNotify=true
+StartupWMClass={APP_ID}
+"""
+    path = Path.home() / ".local" / "share" / "applications" / f"{APP_ID}.desktop"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(entry)
+    print(f"Launcher installed: {path}")
+    print(f"Exec: {exec_line}")
+    return 0
 
 
 def main():
@@ -96,18 +63,25 @@ def main():
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log received messages instead of typing them (no portal)")
+    parser.add_argument("--gui", action="store_true", help="Open a window with the QR code")
+    parser.add_argument("--install-desktop", action="store_true",
+                        help="Install the 'لوحة الهاتف' launcher for the current user")
     args = parser.parse_args()
-    
+
+    if args.install_desktop:
+        return install_desktop(args.dry_run)
+
     host = args.host or get_lan_ip()
-    token = secrets.token_urlsafe(16)
-    key = new_key()
-    # The key travels only in the fragment, which browsers never send
-    url = f"http://{host}:{args.port}/?t={token}#k={key_to_b64url(key)}"
-    
-    print_qr(url)
-    
+
+    if args.gui:
+        from .gui import run_gui
+        return run_gui(host, args.port, args.dry_run)
+
+    service = Service(host, args.port, args.dry_run)
+    print_qr(service.url)
+
     try:
-        result = asyncio.run(main_async(host, args.port, token, key, args.dry_run))
+        result = asyncio.run(service.run())
         return result or 0
     except (KeyboardInterrupt, asyncio.CancelledError):
         return 0

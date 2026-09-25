@@ -3,7 +3,7 @@ import asyncio
 import secrets
 import time
 from collections import defaultdict, deque
-from aiohttp import web, WSMsgType
+from aiohttp import web, WSMsgType, WSCloseCode
 from pathlib import Path
 
 from .secure import Box, BadFrame
@@ -28,15 +28,16 @@ class Server:
         self.notify = notify
         self.ws = None
         self.inject_queue = asyncio.Queue()
-        self.on_status = None  # optional callback(text) for a GUI
+        self.on_event = None  # optional callback(kind, detail) for a GUI
         self._bad_tokens = defaultdict(deque)  # ip -> monotonic times
         self._blocked = {}  # ip -> monotonic unblock time
         self._tasks = set()
+        self._sockets = set()  # every open WebSocket, closed on shutdown
 
-    def _status(self, text):
+    def _event(self, kind, text, detail=None):
         print(text)
-        if self.on_status:
-            self.on_status(text)
+        if self.on_event:
+            self.on_event(kind, detail)
 
     async def set_credentials(self, token, key):
         """Switch to a new token/key and drop the phone using the old ones."""
@@ -100,7 +101,13 @@ class Server:
 
         ws = web.WebSocketResponse(max_msg_size=1 << 20)
         await ws.prepare(request)
+        self._sockets.add(ws)
+        try:
+            return await self._session(ws, ip)
+        finally:
+            self._sockets.discard(ws)
 
+    async def _session(self, ws, ip):
         # Challenge with a fresh session id; the phone must echo it in an
         # encrypted hello (ctr=1), so frames recorded from another connection
         # can't be replayed into this one.
@@ -136,7 +143,7 @@ class Server:
         self.ws = ws
         last_ctr = 1
         last_seq = 0
-        self._status(f"Phone connected ({ip})")
+        self._event("connected", f"Phone connected ({ip})", ip)
         self._notify_connected(ip)
 
         try:
@@ -173,7 +180,7 @@ class Server:
         finally:
             if self.ws is ws:
                 self.ws = None
-                self._status("Phone disconnected")
+                self._event("disconnected", "Phone disconnected")
 
         return ws
 
@@ -197,9 +204,15 @@ class Server:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
+    async def _close_sockets(self, _app):
+        # Otherwise shutdown waits for the phone to hang up
+        for ws in list(self._sockets):
+            await ws.close(code=WSCloseCode.GOING_AWAY, message=b"server stopped")
+
     def create_app(self):
         """Create aiohttp application."""
         app = web.Application()
+        app.on_shutdown.append(self._close_sockets)
         app.router.add_get("/", self.handle_index)
         app.router.add_get("/nacl-fast.min.js", self.handle_nacl)
         app.router.add_get("/ws", self.handle_ws)
