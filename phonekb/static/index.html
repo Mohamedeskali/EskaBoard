@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+    <title>لوحة المفاتيح</title>
+    <style>
+        :root {
+            --bg: #1a1a1a;
+            --fg: #e0e0e0;
+            --surface: #2a2a2a;
+            --border: #444;
+            --muted-bg: #333;
+            --accent: #007bff;
+            --accent-down: #0056b3;
+            --key: #6c757d;
+            --key-down: #545b62;
+            --ok: #28a745;
+            --bad: #dc3545;
+        }
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg: #f5f5f5;
+                --fg: #333;
+                --surface: #fff;
+                --border: #ccc;
+                --muted-bg: #e2e2e2;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Noto Sans Arabic", "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            height: 100dvh;
+            padding: 8px;
+            overflow: hidden;
+        }
+        button {
+            background: var(--accent); color: #fff; border: none; border-radius: 8px;
+            cursor: pointer; touch-action: manipulation; font: inherit;
+        }
+        button:active { background: var(--accent-down); }
+
+        /* Top bar: [status | إرسال/مباشر | ↺] */
+        .top-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .status { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .status-dot.connected { background: var(--ok); }
+        .status-dot.disconnected { background: var(--bad); }
+        .segmented {
+            flex: 1; display: flex; padding: 3px; gap: 3px;
+            background: var(--muted-bg); border-radius: 10px;
+        }
+        .segmented button { flex: 1; padding: 7px 4px; font-size: 14px; background: transparent; color: var(--fg); }
+        .segmented button.active { background: var(--accent); color: #fff; }
+        .icon-btn { width: 38px; height: 38px; flex-shrink: 0; font-size: 18px; background: var(--key); }
+        .icon-btn:active { background: var(--key-down); }
+
+        /* One row of quick keys */
+        .quick-keys { display: flex; gap: 4px; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .key-btn { flex: 1 0 34px; height: 40px; padding: 0; font-size: 16px; background: var(--key); }
+        .key-btn:active { background: var(--key-down); }
+
+        /* Send row (Send mode only) */
+        .send-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .send-row[hidden] { display: none; }
+        .send-btn { flex: 1; padding: 10px; font-size: 15px; }
+        .send-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+        .send-row input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+        textarea {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            padding: 12px;
+            font: inherit;
+            font-size: 18px;
+            line-height: 1.6;
+            background: var(--surface);
+            color: var(--fg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            resize: none;
+            text-align: start;
+            outline: none;
+        }
+        textarea:focus { border-color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="status">
+            <span class="status-dot disconnected" id="status"></span>
+            <span id="status-text">غير متصل</span>
+        </div>
+        <div class="segmented" role="group" aria-label="الوضع">
+            <button type="button" data-mode="send" aria-pressed="true" class="active">إرسال</button>
+            <button type="button" data-mode="live" aria-pressed="false">مباشر</button>
+        </div>
+        <button type="button" class="icon-btn" id="new-btn" aria-label="جديد" title="جديد">↺</button>
+    </div>
+
+    <div class="quick-keys" dir="ltr">
+        <button type="button" class="key-btn" data-key="enter" aria-label="Enter">↵</button>
+        <button type="button" class="key-btn" data-key="backspace" aria-label="Backspace">⌫</button>
+        <button type="button" class="key-btn" data-key="tab" aria-label="Tab">⇥</button>
+        <button type="button" class="key-btn" data-key="left" aria-label="Left">←</button>
+        <button type="button" class="key-btn" data-key="up" aria-label="Up">↑</button>
+        <button type="button" class="key-btn" data-key="down" aria-label="Down">↓</button>
+        <button type="button" class="key-btn" data-key="right" aria-label="Right">→</button>
+        <button type="button" class="key-btn" data-key="escape" aria-label="Esc">Esc</button>
+        <button type="button" class="key-btn" data-key="ctrl+z" aria-label="Ctrl+Z">↶</button>
+    </div>
+
+    <div class="send-row" id="send-row">
+        <button type="button" class="send-btn" id="send">إرسال إلى الحاسوب</button>
+        <label><input type="checkbox" id="autoenter"> اضغط Enter بعد الإرسال</label>
+    </div>
+
+    <textarea id="text" dir="auto" placeholder="اكتب هنا أو استخدم الصوت..."></textarea>
+
+    <script>
+        const textarea = document.getElementById('text');
+        const modeButtons = document.querySelectorAll('.segmented button');
+        const newBtn = document.getElementById('new-btn');
+        const statusDot = document.getElementById('status');
+        const statusText = document.getElementById('status-text');
+        const sendRow = document.getElementById('send-row');
+        const sendBtn = document.getElementById('send');
+        const autoEnter = document.getElementById('autoenter');
+        let ws = null;
+        let reconnectDelay = 1000;
+
+        // Mode: 'send' or 'live'
+        let mode = localStorage.getItem('mode') === 'live' ? 'live' : 'send';
+        let mirror = '';  // What the PC currently has from this box (live mode only)
+        let seq = 0;  // Sequence counter for live mode
+        let composing = false;
+        let debounceTimer = null;
+
+        // Status text update
+        function updateStatusText(connected) {
+            statusDot.classList.toggle('connected', connected);
+            statusDot.classList.toggle('disconnected', !connected);
+            statusText.textContent = connected ? 'متصل' : 'غير متصل';
+        }
+
+        function updateMode() {
+            modeButtons.forEach(btn => {
+                const on = btn.dataset.mode === mode;
+                btn.classList.toggle('active', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            sendRow.hidden = mode !== 'send';
+        }
+
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                mode = btn.dataset.mode;
+                localStorage.setItem('mode', mode);
+                updateMode();
+                textarea.focus();
+            });
+        });
+
+        // Initialize
+        updateMode();
+        updateStatusText(false);
+
+        function connect() {
+            const token = new URLSearchParams(location.search).get('t');
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/ws?t=${token}`);
+
+            ws.onopen = () => {
+                updateStatusText(true);
+                reconnectDelay = 1000;
+                // Clear on reconnect
+                textarea.value = '';
+                mirror = '';
+                seq = 0;
+            };
+
+            ws.onclose = () => {
+                updateStatusText(false);
+                setTimeout(connect, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+            };
+
+            ws.onerror = () => {
+                updateStatusText(false);
+            };
+        }
+
+        function send(data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function flushLive() {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+                debounceTimer = null;
+            }
+            sendLiveDiff();
+        }
+
+        function sendLiveDiff() {
+            const current = textarea.value;
+            if (current === mirror) return;
+
+            // Compute diff by Unicode code points
+            const mirrorChars = Array.from(mirror);
+            const currentChars = Array.from(current);
+
+            let p = 0;
+            while (p < mirrorChars.length && p < currentChars.length && mirrorChars[p] === currentChars[p]) {
+                p++;
+            }
+
+            const deleteCount = mirrorChars.length - p;
+            const insert = currentChars.slice(p).join('');
+
+            if (deleteCount > 0 || insert.length > 0) {
+                seq++;
+                send({ type: 'live', seq: seq, delete: deleteCount, insert: insert });
+                mirror = current;
+            }
+        }
+
+        // Keep focus (and the phone keyboard) on the textarea
+        sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        sendBtn.addEventListener('click', () => {
+            const text = textarea.value;
+            if (text.length > 0) {
+                send({ type: 'text', text: text });
+                textarea.value = '';
+                if (autoEnter.checked) {
+                    send({ type: 'key', key: 'enter' });
+                }
+            }
+            textarea.focus();
+        });
+
+        newBtn.addEventListener('pointerdown', (e) => e.preventDefault());
+        newBtn.addEventListener('click', () => {
+            textarea.value = '';
+            mirror = '';
+            textarea.focus();
+        });
+
+        // Composition tracking
+        textarea.addEventListener('compositionstart', () => {
+            composing = true;
+        });
+
+        textarea.addEventListener('compositionend', () => {
+            composing = false;
+            if (mode === 'live') {
+                flushLive();
+            }
+        });
+
+        // Debounced input for live mode
+        textarea.addEventListener('input', () => {
+            if (mode !== 'live') return;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            const delay = composing ? 600 : 120;
+            debounceTimer = setTimeout(sendLiveDiff, delay);
+        });
+
+        document.querySelectorAll('.key-btn').forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const key = btn.dataset.key;
+
+                if (mode === 'live') {
+                    flushLive();
+
+                    // Quick keys: clear mirror after sending
+                    if (['enter', 'left', 'up', 'down', 'right', 'tab', 'escape', 'ctrl+z'].includes(key)) {
+                        send({ type: 'key', key: key });
+                        textarea.value = '';
+                        mirror = '';
+                    } else if (key === 'backspace') {
+                        if (textarea.value.length === 0) {
+                            send({ type: 'key', key: key });
+                        }
+                    }
+                } else {
+                    send({ type: 'key', key: key });
+                }
+            });
+        });
+
+        // Adjust layout when keyboard opens/closes
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.body.style.height = `${window.visualViewport.height}px`;
+            });
+        }
+
+        textarea.focus();
+        connect();
+    </script>
+</body>
+</html>
