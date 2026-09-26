@@ -12,7 +12,7 @@ Use your phone as a keyboard for your Linux PC. Scan a QR code, then type or dic
 ## Install
 
 ```bash
-cd ~/Documents/Project/phon_Ecri
+cd ~/Documents/Project/EskaBoard
 python3 -m venv --system-site-packages venv
 venv/bin/pip install -r requirements.txt
 venv/bin/python3 -m phonekb --install-desktop   # optional: adds "لوحة الهاتف" to the apps menu
