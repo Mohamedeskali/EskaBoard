@@ -63,7 +63,7 @@ class PhoneKBApp(Gtk.Application):
         self.window.present()
 
     def build_window(self):
-        win = Gtk.ApplicationWindow(application=self, title="لوحة الهاتف")
+        win = Gtk.ApplicationWindow(application=self, title="EskaBoard")
         win.set_default_size(380, 580)
         win.connect("close-request", self.on_close_request)
 

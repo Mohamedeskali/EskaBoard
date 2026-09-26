@@ -191,8 +191,8 @@ class Server:
         async def run():
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    "notify-send", "--app-name=phonekb", "--icon=input-keyboard",
-                    "لوحة الهاتف", f"الهاتف متصل ({ip})",
+                    "notify-send", "--app-name=EskaBoard", "--icon=input-keyboard",
+                    "EskaBoard", f"الهاتف متصل ({ip})",
                     stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
                 _, err = await proc.communicate()
                 if proc.returncode:

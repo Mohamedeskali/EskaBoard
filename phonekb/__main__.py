@@ -1,4 +1,4 @@
-"""Phone keyboard - main entry point."""
+"""EskaBoard - main entry point."""
 import argparse
 import asyncio
 import sys
@@ -58,7 +58,7 @@ StartupWMClass={APP_ID}
 
 def main():
     """Entry point."""
-    parser = argparse.ArgumentParser(description="Phone keyboard for Linux PC")
+    parser = argparse.ArgumentParser(description="EskaBoard: use your phone as a keyboard for this PC")
     parser.add_argument("--host", default=None, help="Host IP (default: auto-detect LAN IP)")
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     parser.add_argument("--dry-run", action="store_true",

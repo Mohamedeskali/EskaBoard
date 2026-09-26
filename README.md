@@ -1,4 +1,4 @@
-# Phone Keyboard (لوحة الهاتف)
+# EskaBoard (لوحة الهاتف)
 
 Use your phone as a keyboard for your Linux PC. Scan a QR code, then type or dictate (Arabic or English) on the phone; the text appears in whatever window has focus on the PC.
 
