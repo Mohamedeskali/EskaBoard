@@ -9,6 +9,7 @@ from pathlib import Path
 from .secure import Box, BadFrame
 
 STATIC = Path(__file__).parent / "static"
+ICON = Path(__file__).resolve().parent.parent / "assets" / "eskaboard.png"
 
 MAX_BAD_TOKENS = 5    # bad tokens from one IP within BLOCK_SECONDS...
 BLOCK_SECONDS = 60    # ...block that IP for this long
@@ -191,7 +192,7 @@ class Server:
         async def run():
             try:
                 proc = await asyncio.create_subprocess_exec(
-                    "notify-send", "--app-name=EskaBoard", "--icon=input-keyboard",
+                    "notify-send", "--app-name=EskaBoard", f"--icon={ICON}",
                     "EskaBoard", f"الهاتف متصل ({ip})",
                     stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
                 _, err = await proc.communicate()
