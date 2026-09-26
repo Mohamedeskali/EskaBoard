@@ -62,13 +62,14 @@ The launcher (`~/.local/share/applications/org.phonekb.PhoneKB.desktop`) runs th
 - **Auto-Enter**: Optional checkbox to press Enter after sending (Send mode only)
 - **Status indicator**: Shows connection state (green = connected)
 - **Auto-reconnect**: WebSocket reconnects automatically
-- **Clipboard preservation**: Your clipboard content is restored after each send
+- **Clipboard preservation**: Your copied text is put back on the clipboard 1 s after you stop typing
 - **Dark/light mode**: Follows your phone's color scheme
 
 ## Known Limitations
 
 - **Live mode focus**: You must keep the target window focused on the PC while typing in live mode — clicking elsewhere will cause text to appear in the wrong place
 - **Terminal pasting**: Standard terminals use Ctrl+Shift+V, so pasting into terminals may not work yet
+- **Clipboard restore is text-only**: if you had copied an image or file, it is replaced by the typed text
 - **Emoji handling**: Complex emoji made of multiple Unicode code points may require extra backspaces in live mode
 - **Plain HTTP page**: The page itself is served over HTTP; the WebSocket messages are end-to-end encrypted (see Security)
 - **Wayland/GNOME only**: Tested on Ubuntu 26.04.1 with GNOME on Wayland
@@ -77,7 +78,7 @@ The launcher (`~/.local/share/applications/org.phonekb.PhoneKB.desktop`) runs th
 ## How It Works
 
 1. **Portal session**: Uses the GNOME RemoteDesktop portal for keyboard input
-2. **Text injection**: Places text on the clipboard with `wl-copy` and sends Ctrl+V via the portal
+2. **Text injection**: Puts the text on the clipboard through the portal's Clipboard interface (part of the same Remote Desktop session) and sends Ctrl+V. The program itself serves the text when the app pastes and waits until the app has read it, so an old clipboard can never be pasted by mistake and no helper window flashes per letter. If the portal clipboard is unavailable it falls back to `wl-copy`.
 3. **Special keys**: Sends X11 keysyms directly through the portal
 4. **Restore token**: Saves a token in `~/.config/phonekb/restore_token` so the permission dialog only appears once
 5. **WebSocket**: Phone connects via WebSocket with a random token; every message is encrypted (see Security)

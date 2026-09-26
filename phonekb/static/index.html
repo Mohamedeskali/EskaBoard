@@ -150,6 +150,7 @@
         let seq = 0;  // Sequence counter for live mode
         let composing = false;
         let debounceTimer = null;
+        let lastLiveSend = 0;  // time of the last live diff (throttle)
 
         // Status text update
         function updateStatusText(connected) {
@@ -336,6 +337,7 @@
 
             if (deleteCount > 0 || insert.length > 0) {
                 seq++;
+                lastLiveSend = Date.now();
                 send({ type: 'live', seq: seq, delete: deleteCount, insert: insert });
                 mirror = current;
             }
@@ -374,12 +376,17 @@
             }
         });
 
-        // Debounced input for live mode
+        // Throttled input for live mode: the first letter after a pause goes
+        // out at once, then at most one update per gap while typing (longer
+        // while the keyboard is composing or dictating, to limit rewrites).
         textarea.addEventListener('input', () => {
-            if (mode !== 'live') return;
-            if (debounceTimer) clearTimeout(debounceTimer);
-            const delay = composing ? 600 : 120;
-            debounceTimer = setTimeout(sendLiveDiff, delay);
+            if (mode !== 'live' || debounceTimer) return;
+            const gap = composing ? 120 : 60;
+            const wait = Math.max(0, lastLiveSend + gap - Date.now());
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                sendLiveDiff();
+            }, wait);
         });
 
         document.querySelectorAll('.key-btn').forEach(btn => {

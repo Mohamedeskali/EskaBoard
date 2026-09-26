@@ -235,14 +235,29 @@ class DryRunInjector:
         print(f"[dry-run] live text: {text!r}")
 
 
+IDLE_RESTORE_SECONDS = 1.0  # typing pause after which the clipboard is restored
+
+
 def inject_worker(injector, queue):
-    """Worker thread that processes injection requests."""
+    """Worker thread that processes injection requests.
+
+    Everything that touches the clipboard runs here, in order: pastes and
+    the restore after a pause can never interleave.
+    """
     import threading
+    import queue as queue_mod
+
+    idle = getattr(injector, "idle", None)
 
     def run():
         while True:
             try:
-                data = queue.get()
+                try:
+                    data = queue.get(timeout=IDLE_RESTORE_SECONDS)
+                except queue_mod.Empty:
+                    if idle:
+                        idle()
+                    continue
                 if data is None:  # Shutdown signal
                     break
 
