@@ -7,7 +7,7 @@ from pathlib import Path
 import qrcode
 
 from .netinfo import get_lan_ip
-from .app import APP_ID, Service
+from .app import Service
 
 
 def print_qr(url):
@@ -29,33 +29,6 @@ def print_qr(url):
     print(f"URL: {url}\n")
 
 
-def install_desktop(dry_run=False):
-    """Write a launcher to ~/.local/share/applications (no sudo)."""
-    project = Path(__file__).resolve().parent.parent
-    python = Path(sys.executable)
-    exec_line = f'"{python}" -m phonekb --gui' + (" --dry-run" if dry_run else "")
-    entry = f"""[Desktop Entry]
-Type=Application
-Name=لوحة الهاتف
-Name[en]=Phone Keyboard
-Comment=استخدم هاتفك كلوحة مفاتيح لهذا الحاسوب
-Comment[en]=Use your phone as a keyboard for this PC
-Exec={exec_line}
-Path={project}
-Icon=input-keyboard
-Terminal=false
-Categories=Utility;
-StartupNotify=true
-StartupWMClass={APP_ID}
-"""
-    path = Path.home() / ".local" / "share" / "applications" / f"{APP_ID}.desktop"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(entry)
-    print(f"Launcher installed: {path}")
-    print(f"Exec: {exec_line}")
-    return 0
-
-
 def main():
     """Entry point."""
     parser = argparse.ArgumentParser(description="EskaBoard: use your phone as a keyboard for this PC")
@@ -64,12 +37,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="Log received messages instead of typing them (no portal)")
     parser.add_argument("--gui", action="store_true", help="Open a window with the QR code")
-    parser.add_argument("--install-desktop", action="store_true",
-                        help="Install the 'لوحة الهاتف' launcher for the current user")
     args = parser.parse_args()
-
-    if args.install_desktop:
-        return install_desktop(args.dry_run)
 
     host = args.host or get_lan_ip()
 

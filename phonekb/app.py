@@ -10,7 +10,7 @@ from .injector import Injector, close_portal
 from .server import Server, DryRunInjector, inject_worker, bridge_queue
 from .secure import new_key, key_to_b64url
 
-APP_ID = "org.phonekb.PhoneKB"  # GTK application id and .desktop file name
+APP_ID = "org.phonekb.PhoneKB"  # GTK application id; StartupWMClass in install.sh must match
 
 
 class Service:

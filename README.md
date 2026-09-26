@@ -13,9 +13,17 @@ Use your phone as a keyboard for your Linux PC. Scan a QR code, then type or dic
 
 ```bash
 cd ~/Documents/Project/EskaBoard
+./install.sh              # creates venv/ if missing, adds EskaBoard to the apps menu
+./install.sh --uninstall  # removes the menu entry and icon (keeps the folder and venv)
+```
+
+The menu entry points at wherever the folder is. After moving or renaming the folder, run `./install.sh` again.
+
+Without the menu entry:
+
+```bash
 python3 -m venv --system-site-packages venv
 venv/bin/pip install -r requirements.txt
-venv/bin/python3 -m phonekb --install-desktop   # optional: adds "لوحة الهاتف" to the apps menu
 ```
 
 ## Run
@@ -32,13 +40,15 @@ On the phone:
 - **إرسال (Send)**: type first, then send it all at once (optionally followed by Enter)
 - Quick keys: Enter, Backspace, Tab, arrows, Esc, Ctrl+Z
 
-Options: `--host IP`, `--port N` (default 8765), `--dry-run` (log messages, never type), `--gui`, `--install-desktop`.
+Options: `--host IP`, `--port N` (default 8765), `--dry-run` (log messages, never type), `--gui`.
 
 ## Project layout
 
 ```
+install.sh         installs/removes the apps-menu entry and icon
+assets/            app icon (eskaboard.svg, eskaboard.png)
 phonekb/
-  __main__.py      command line: options, terminal QR, launcher install
+  __main__.py      command line: options, terminal QR
   app.py           Service: runs the web server and the typing worker (used by CLI and GUI)
   gui.py           GTK 4 window
   server.py        web server, encrypted WebSocket, token/IP checks, typing worker
