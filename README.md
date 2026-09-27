@@ -79,3 +79,9 @@ phonekb/
 - No permission dialog, or to revoke it: GNOME Settings → Privacy → Remote Desktop.
 - Text doesn't appear: check the target window has focus and look at the terminal output.
 - Phone says the QR expired: the program was restarted or "QR جديد" was pressed; scan the new QR.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+`phonekb/static/nacl-fast.min.js` is [TweetNaCl.js](https://github.com/dchest/tweetnacl-js) 1.0.3 by the TweetNaCl.js contributors, released into the public domain (The Unlicense).
