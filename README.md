@@ -12,7 +12,7 @@ Use your phone as a keyboard for your Linux PC. Scan a QR code, then type or dic
 ## Install
 
 ```bash
-cd ~/Documents/Project/EskaBoard
+cd ~/EskaBoard
 ./install.sh              # creates venv/ if missing, adds EskaBoard to the apps menu
 ./install.sh --uninstall  # removes the menu entry and icon (keeps the folder and venv)
 ```
@@ -76,7 +76,8 @@ phonekb/
 
 ## Troubleshooting
 
-- No permission dialog, or to revoke it: GNOME Settings → Privacy → Remote Desktop.
+- No permission dialog: it may be behind other windows (Alt+Tab), and it gives up after 5 minutes.
+- To revoke the permission, delete `~/.config/phonekb` (GNOME Settings has no page for it). Uninstalling does this for you.
 - Text doesn't appear: check the target window has focus and look at the terminal output.
 - Phone says the QR expired: the program was restarted or "QR جديد" was pressed; scan the new QR.
 
