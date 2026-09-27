@@ -118,8 +118,9 @@ class PhoneKBApp(Gtk.Application):
         self.conn_label.set_markup(f"<b>{GLib.markup_escape_text(text)}</b>")
 
     def show_qr(self, url):
+        # Not printed: stdout of a menu launch goes to the systemd journal,
+        # and the URL carries the pairing token and key
         self.picture.set_paintable(qr_texture(url))
-        print(f"URL: {url}")
 
     # ---- service thread ----
 

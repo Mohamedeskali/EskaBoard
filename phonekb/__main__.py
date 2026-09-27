@@ -6,6 +6,7 @@ from pathlib import Path
 
 import qrcode
 
+from . import __version__
 from .netinfo import get_lan_ip
 from .app import Service
 
@@ -37,6 +38,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="Log received messages instead of typing them (no portal)")
     parser.add_argument("--gui", action="store_true", help="Open a window with the QR code")
+    parser.add_argument("--version", action="version", version=f"EskaBoard {__version__}")
     args = parser.parse_args()
 
     host = args.host or get_lan_ip()
