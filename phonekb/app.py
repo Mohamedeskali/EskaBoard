@@ -82,7 +82,7 @@ class Service:
             except Exception as e:
                 print(f"\n*** Portal session failed: {e}")
                 print("*** Server continues running, but injection will not work.")
-                print("*** Check GNOME Settings -> Privacy -> Remote Desktop\n")
+                print("*** Restart and click Share in the GNOME dialog (it may be behind other windows)\n")
                 self.on_event("portal_failed", str(e))
 
             # Start injection worker only if portal succeeded
