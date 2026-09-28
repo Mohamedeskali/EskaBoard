@@ -79,6 +79,17 @@ On the phone:
 - **إرسال (Send)**: type first, then send it all at once (optionally followed by Enter)
 - Quick keys: Enter, Backspace, Tab, arrows, Esc, Ctrl+Z
 
+### Tip: live translation
+
+If your phone uses Gboard, you can write in one language and have the text arrive on the PC in another, with nothing extra to install:
+
+1. On the EskaBoard page, tap the text box so Gboard opens.
+2. In Gboard's toolbar, tap **Translate** (open the **⋯** menu if it is not shown).
+3. Pick the two languages, for example **Arabic → English**.
+4. Type in Gboard's translate box: the translated text goes into the EskaBoard page and on to the PC, in **مباشر** or **إرسال** mode.
+
+The translation is done by Gboard on the phone, so it depends on Gboard's own language support.
+
 ## Other ways to install
 
 From a folder, without the one-line command (for example a ZIP of the project):
