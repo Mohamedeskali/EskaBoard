@@ -1,85 +1,170 @@
 # EskaBoard (لوحة الهاتف)
 
-Use your phone as a keyboard for your Linux PC. Scan a QR code, then type or dictate (Arabic or English) on the phone; the text appears in whatever window has focus on the PC.
+Use your phone as a keyboard for your PC. Scan a QR code, then type or dictate (Arabic or English) on the phone; the text appears in whatever window has focus on the PC.
 
-## Requirements
+## Supported systems
 
-- Ubuntu 26.04 with GNOME on Wayland
-- Python 3 with PyGObject and GTK 4 (system packages)
-- Phone and PC on the same Wi-Fi network
-- Optional: `wl-clipboard` (only used if the portal clipboard is unavailable)
+| System | Notes |
+|---|---|
+| Ubuntu 24.04 or newer | GNOME on Wayland |
+| Windows 10 and 11 | **New in 0.2.0** |
 
-## Install
+On both, the phone only needs a web browser, and it must be on the same Wi-Fi network as the PC.
 
-```bash
-cd ~/EskaBoard
-./install.sh              # creates venv/ if missing, adds EskaBoard to the apps menu
-./install.sh --uninstall  # removes the menu entry and icon (keeps the folder and venv)
-```
+## Ubuntu
 
-The menu entry points at wherever the folder is. After moving or renaming the folder, run `./install.sh` again.
-
-Without the menu entry:
+### Install
 
 ```bash
-python3 -m venv --system-site-packages venv
-venv/bin/pip install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash
 ```
 
-## Run
+This installs EskaBoard in `~/EskaBoard` and adds it to the apps menu. It never runs `sudo`: if system packages are missing, it prints the `apt` command to run first. The first time EskaBoard starts, GNOME asks for Remote Desktop permission: click **Share**.
+
+### Update
+
+Run the install command again:
 
 ```bash
-venv/bin/python3 -m phonekb          # QR code in the terminal (also saved as qr.png)
-venv/bin/python3 -m phonekb --gui    # window with the QR code, status, "QR جديد" and "إيقاف"
+curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash
 ```
 
-The first time, GNOME asks for Remote Desktop permission: click **Share**. It is remembered for later runs.
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash -s -- --uninstall
+```
+
+This removes `~/EskaBoard` (with its venv), the apps-menu entry and `~/.config/phonekb` (the saved Remote Desktop permission).
+
+## Windows
+
+### Install
+
+Open **PowerShell** (Start menu, type `PowerShell`) and run:
+
+```powershell
+irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1 | iex
+```
+
+This installs EskaBoard in `%LOCALAPPDATA%\EskaBoard`, installs Python with `winget` if it is missing, adds EskaBoard to the Start menu and the desktop, and starts it. EskaBoard's page opens in your browser with the QR code. No administrator rights are needed.
+
+The first time, Windows Firewall asks whether Python may use the network: tick **Private networks** and click **Allow**. If your Wi-Fi is set to **Public**, the installer tells you; see [Troubleshooting](#windows-1).
+
+### Update
+
+Run the install command again:
+
+```powershell
+irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1 | iex
+```
+
+### Uninstall
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1))) -Uninstall
+```
+
+This removes `%LOCALAPPDATA%\EskaBoard` (with its venv), the Start menu and desktop shortcuts, and `%APPDATA%\EskaBoard` (log file). It lists what it removed. Python and any firewall rule Windows made for Python stay.
+
+## Using it
+
+Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan the QR code with the phone's camera.
+
+- Ubuntu shows a window; Windows shows a page in your browser. Both have the QR code, the connection status, **QR جديد** (new QR: the phone using the old one is disconnected) and **إيقاف** (stop).
+- On Windows you can close the page: EskaBoard keeps running. Open EskaBoard from the Start menu to see the page again.
 
 On the phone:
 - **مباشر (Live)**: text appears on the PC as you type or dictate
 - **إرسال (Send)**: type first, then send it all at once (optionally followed by Enter)
 - Quick keys: Enter, Backspace, Tab, arrows, Esc, Ctrl+Z
 
+## Other ways to install
+
+From a folder, without the one-line command (for example a ZIP of the project):
+
+```bash
+# Ubuntu
+./install.sh              # creates venv/ if missing, adds EskaBoard to the apps menu
+./install.sh --uninstall  # removes the menu entry and icon (keeps the folder and venv)
+```
+
+```powershell
+# Windows: extract the ZIP, open PowerShell in the extracted folder
+powershell -ExecutionPolicy Bypass -File .\install.ps1              # install and start
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall   # remove shortcuts, settings and the folder
+```
+
+The shortcuts point at wherever the folder is. After moving or renaming it, run the install script again.
+
+Run from a terminal:
+
+```bash
+venv/bin/python3 -m phonekb          # Ubuntu: QR code in the terminal (also saved as qr.png)
+venv/bin/python3 -m phonekb --gui    # Ubuntu: the window
+venv\Scripts\python -m phonekb       # Windows: QR code in the terminal
+venv\Scripts\python -m phonekb --gui # Windows: the page in the browser
+```
+
 Options: `--host IP`, `--port N` (default 8765), `--dry-run` (log messages, never type), `--gui`.
 
 ## Project layout
 
 ```
-install.sh         installs/removes the apps-menu entry and icon
-assets/            app icon (eskaboard.svg, eskaboard.png)
+get.sh / get.ps1   one-line install, update and uninstall (Ubuntu / Windows)
+install.sh         Ubuntu: checks packages, sets up the venv, adds the apps-menu entry
+install.ps1        Windows: finds or installs Python, sets up the venv, adds the shortcuts
+assets/            app icon (eskaboard.svg, eskaboard.png, eskaboard.ico)
 phonekb/
   __main__.py      command line: options, terminal QR
   app.py           Service: runs the web server and the typing worker (used by CLI and GUI)
-  gui.py           GTK 4 window
+  gui.py           Ubuntu: GTK 4 window
+  webgui.py        Windows: the page in the browser (127.0.0.1 only)
   server.py        web server, encrypted WebSocket, token/IP checks, typing worker
   secure.py        NaCl secretbox helpers (key, encrypt, decrypt)
-  injector.py      GNOME Remote Desktop portal: permission, keys, clipboard paste
+  injector.py      Ubuntu: GNOME Remote Desktop portal: permission, keys, clipboard paste
+  injector_win.py  Windows: SendInput (Unicode characters and virtual keys)
   netinfo.py       finds the PC's LAN IP
   static/
     index.html     the phone page
+    status.html    the Windows page
     nacl-fast.min.js  tweetnacl 1.0.3 (served locally, no CDN)
 ```
 
 ## How it works
 
-- Typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts your own copied text back 1 s after you stop typing. Special keys are sent as key presses.
-- The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
 - Each run creates a random token (`?t=`) and a 32-byte key (`#k=`) in the QR link. The key never goes over the network. Every WebSocket message is encrypted (NaCl secretbox) with a session id and a counter, so plaintext, a wrong key and replayed messages are rejected. 5 bad tokens from one IP block it for 60 s.
-- `qr.png` contains the token and key: it is git-ignored, don't share it.
+- Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts your own copied text back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
+- Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used. Special keys are sent as key presses.
+- Windows: the page with the QR code is served on `127.0.0.1` only, on a random port, and needs a random secret that is in the address the browser opens. It cannot be reached from the network, because the QR contains the key.
+- `qr.png` (terminal mode) contains the token and key: it is git-ignored, don't share it.
 
 ## Limitations
 
 - Keep the target window focused while typing.
-- Terminals paste with Ctrl+Shift+V, so typing into a terminal may not work.
-- Only text clipboards are restored (a copied image is replaced by the typed text).
-- One phone at a time; GNOME on Wayland only.
+- One phone at a time.
+- Ubuntu: GNOME on Wayland only. Terminals paste with Ctrl+Shift+V, so typing into a terminal may not work. Only text clipboards are restored (a copied image is replaced by the typed text).
+- Windows: nothing can be typed into programs running as administrator (Windows blocks it), or on the lock screen and UAC prompts. A few programs that read raw keys (some games, remote-desktop tools) ignore Unicode typing.
 
 ## Troubleshooting
+
+### Ubuntu
 
 - No permission dialog: it may be behind other windows (Alt+Tab), and it gives up after 5 minutes.
 - To revoke the permission, delete `~/.config/phonekb` (GNOME Settings has no page for it). Uninstalling does this for you.
 - Text doesn't appear: check the target window has focus and look at the terminal output.
 - Phone says the QR expired: the program was restarted or "QR جديد" was pressed; scan the new QR.
+
+### Windows
+
+- **Firewall prompt.** The first time, Windows asks whether "Python" may use the network. Tick **Private networks** and click **Allow access** (a standard account needs an administrator password). If you clicked **Cancel**, the phone cannot connect: Start, type `Allow an app through Windows Firewall`, **Change settings**, tick **Private** for every **Python** entry, **OK**. The installer warns you when it finds such a blocking rule. EskaBoard never changes the firewall itself.
+- **"Public" network blocks the phone.** Windows blocks incoming connections on networks set to Public, even after you allowed Python. If it is your home or office Wi-Fi, make it Private: **Settings > Network & internet > Wi-Fi** (or **Ethernet**) > your network > **Network profile type: Private**. Do this only for networks you trust. The installer warns you when the network is Public.
+- **Same Wi-Fi.** The phone must be on the same Wi-Fi as the PC, not on mobile data or a guest network (guest networks often keep devices apart). The address under the QR code (for example `192.168.1.20:8765`) should start like the phone's Wi-Fi address. A VPN on the PC can make EskaBoard pick the wrong address: turn it off, or start it with `--host` and the PC's Wi-Fi address.
+- **"Running scripts is disabled on this system" (execution policy).** The one-line `irm ... | iex` command is not affected. For `install.ps1` from a ZIP, run it as shown above with `powershell -ExecutionPolicy Bypass -File .\install.ps1`: this allows it for that run only and changes no setting.
+- **SmartScreen / "this file came from the internet".** EskaBoard has no `.exe` of its own. If the browser warns about the ZIP, choose **Keep**. If Windows blocks the extracted scripts, right-click the ZIP, **Properties**, tick **Unblock**, then extract it again (or run `Unblock-File .\install.ps1`).
+- **The page was closed.** EskaBoard keeps running: open it from the Start menu to see the page again.
+- **Text doesn't appear.** Check the target window has focus and is not running as administrator. The log is in `%APPDATA%\EskaBoard\eskaboard.log`.
+- **"Port 8765 is in use".** Another EskaBoard, or another program, uses the port. Stop it, or start EskaBoard with `--port 8766`.
 
 ## License
 
