@@ -3,10 +3,15 @@ import asyncio
 import queue
 import secrets
 import signal
+import sys
 
 from aiohttp import web
 
-from .injector import Injector, close_portal
+WINDOWS = sys.platform == "win32"
+if WINDOWS:
+    from .injector_win import Injector, close_portal
+else:
+    from .injector import Injector, close_portal
 from .server import Server, DryRunInjector, inject_worker, bridge_queue
 from .secure import new_key, key_to_b64url
 
@@ -65,7 +70,7 @@ class Service:
             self.on_event("portal_starting")
 
         loop = asyncio.get_running_loop()
-        if handle_sigterm:
+        if handle_sigterm and not WINDOWS:  # no add_signal_handler on Windows
             # SIGTERM takes the same shutdown path as Ctrl+C (cancels this task)
             loop.add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
 
@@ -80,9 +85,13 @@ class Service:
                     injector = await loop.run_in_executor(None, Injector)
                 server.injector = injector
             except Exception as e:
-                print(f"\n*** Portal session failed: {e}")
-                print("*** Server continues running, but injection will not work.")
-                print("*** Restart and click Share in the GNOME dialog (it may be behind other windows)\n")
+                if WINDOWS:
+                    print(f"\n*** Keyboard input failed: {e}")
+                    print("*** Server continues running, but injection will not work.\n")
+                else:
+                    print(f"\n*** Portal session failed: {e}")
+                    print("*** Server continues running, but injection will not work.")
+                    print("*** Restart and click Share in the GNOME dialog (it may be behind other windows)\n")
                 self.on_event("portal_failed", str(e))
 
             # Start injection worker only if portal succeeded
