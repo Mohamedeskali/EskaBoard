@@ -257,8 +257,7 @@ async def _serve(host, port, dry_run, open_browser):
 
 
 def run_webgui(host, port, dry_run, open_browser=True):
-    _redirect_output()
-    if not _first_instance():
+    if not _first_instance():  # before the log: opening it would empty the running copy's
         try:
             url = URL_FILE.read_text().strip()
         except OSError:
@@ -269,6 +268,7 @@ def run_webgui(host, port, dry_run, open_browser=True):
         else:
             print("EskaBoard is already running (still starting?)")
         return 0
+    _redirect_output()
     try:
         asyncio.run(_serve(host, port, dry_run, open_browser))
     except KeyboardInterrupt:
