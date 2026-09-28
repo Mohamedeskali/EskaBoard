@@ -37,12 +37,22 @@ def main():
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log received messages instead of typing them (no portal)")
-    parser.add_argument("--gui", action="store_true", help="Open a window with the QR code")
+    parser.add_argument("--gui", action="store_true",
+                        help="Open a window with the QR code (a page in the browser on Windows)")
     parser.add_argument("--version", action="version", version=f"EskaBoard {__version__}")
     args = parser.parse_args()
 
+    if sys.platform == "win32":
+        # Consoles and log files that can't show a character get an escape, not a crash
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(errors="backslashreplace")
+
     host = args.host or get_lan_ip()
 
+    if args.gui and sys.platform == "win32":
+        from .webgui import run_webgui
+        return run_webgui(host, args.port, args.dry_run)
     if args.gui:
         from .gui import run_gui
         return run_gui(host, args.port, args.dry_run)

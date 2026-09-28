@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>EskaBoard</title>
+    <link rel="icon" href="/icon.png">
+    <!-- The EskaBoard window on Windows (phonekb/webgui.py); looks like the GTK one (gui.py) -->
+    <style>
+        :root {
+            --bg: #fafafa;
+            --window: #ffffff;
+            --fg: #242424;
+            --dim: #6b6b6b;
+            --border: #dcdcdc;
+            --button: #ebebeb;
+            --button-hover: #e0e0e0;
+            --button-down: #d2d2d2;
+            --destructive: #c01c28;
+            --destructive-hover: #a51d2d;
+            --ok: #26a269;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1e1e1e;
+                --window: #242424;
+                --fg: #ffffff;
+                --dim: #a8a8a8;
+                --border: #3a3a3a;
+                --button: #3a3a3a;
+                --button-hover: #454545;
+                --button-down: #505050;
+                --destructive: #e01b24;
+                --destructive-hover: #c01c28;
+                --ok: #33d17a;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", Cantarell, sans-serif;
+            font-size: 15px;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .window {
+            width: 100%;
+            max-width: 380px;
+            background: var(--window);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
+        }
+        .title { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; }
+        .title img { width: 24px; height: 24px; }
+        .qr {
+            width: 100%;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr img { width: 100%; max-width: 320px; aspect-ratio: 1; border-radius: 8px; background: #fff; }
+        .qr img[hidden] { display: none; }
+        .conn { font-weight: 700; overflow-wrap: anywhere; }
+        .conn.connected::before {
+            content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            background: var(--ok); margin-inline-end: 6px; vertical-align: middle;
+        }
+        .dim { color: var(--dim); overflow-wrap: anywhere; }
+        .addr { direction: ltr; }
+        .hint { color: var(--dim); font-size: 13px; line-height: 1.6; }
+        .hint[hidden] { display: none; }
+        .buttons { display: flex; gap: 8px; margin-top: 6px; }
+        button {
+            flex: 1;
+            font: inherit;
+            font-weight: 700;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: var(--button);
+            color: var(--fg);
+            cursor: pointer;
+        }
+        button:hover { background: var(--button-hover); }
+        button:active { background: var(--button-down); }
+        button.destructive { background: var(--destructive); color: #fff; }
+        button.destructive:hover { background: var(--destructive-hover); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        button:disabled:hover { background: var(--button); }
+        button.destructive:disabled:hover { background: var(--destructive); }
+        .note { color: var(--dim); font-size: 12px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <main class="window">
+        <div class="title"><img src="/icon.png" alt=""> EskaBoard</div>
+        <div class="qr"><img id="qr" alt="رمز QR للهاتف" hidden></div>
+        <div class="conn" id="conn">جارٍ التحميل…</div>
+        <div class="dim" id="input"></div>
+        <div class="dim addr" id="addr"></div>
+        <div class="hint" id="hint" hidden>
+            لا يتصل الهاتف؟ ضع الهاتف والحاسوب على نفس شبكة Wi-Fi،
+            واجعل نوع الشبكة في Windows «خاصة» (Private)، واسمح لـ Python في جدار الحماية.
+        </div>
+        <div class="buttons">
+            <button type="button" id="new" title="رمز وصلاحية جديدان؛ يُفصل الهاتف المتصل بالرمز القديم" disabled>QR جديد</button>
+            <button type="button" id="stop" class="destructive" disabled>إيقاف</button>
+        </div>
+        <div class="note" id="note">
+            يمكنك إغلاق هذه الصفحة وسيبقى EskaBoard يعمل.
+            لإظهارها مجددًا افتح EskaBoard من قائمة ابدأ.
+        </div>
+    </main>
+
+    <script>
+        const q = 's=' + encodeURIComponent(new URLSearchParams(location.search).get('s') || '');
+        const qr = document.getElementById('qr');
+        const conn = document.getElementById('conn');
+        const input = document.getElementById('input');
+        const addr = document.getElementById('addr');
+        const hint = document.getElementById('hint');
+        const note = document.getElementById('note');
+        const newBtn = document.getElementById('new');
+        const stopBtn = document.getElementById('stop');
+        let qrVersion = 0;
+        let failures = 0;
+        let ended = false;
+
+        function show(state) {
+            conn.textContent = state.conn;
+            conn.classList.toggle('connected', state.connected);
+            input.textContent = state.input;
+            addr.textContent = state.addr;
+            hint.hidden = state.connected || state.stopping;
+            newBtn.disabled = !state.can_rotate;
+            stopBtn.disabled = state.stopping;
+            document.title = state.connected ? '● EskaBoard' : 'EskaBoard';
+            if (state.qr !== qrVersion) {
+                qrVersion = state.qr;
+                if (qrVersion) qr.src = '/qr.png?' + q + '&v=' + qrVersion;
+                qr.hidden = !qrVersion;
+            }
+        }
+
+        function showStopped() {
+            ended = true;
+            conn.textContent = 'EskaBoard متوقف';
+            conn.classList.remove('connected');
+            input.textContent = 'يمكنك إغلاق هذه الصفحة. لتشغيله من جديد افتح EskaBoard من قائمة ابدأ.';
+            hint.hidden = true;
+            note.hidden = true;
+            qr.hidden = true;
+            qr.removeAttribute('src');
+            newBtn.disabled = true;
+            stopBtn.disabled = true;
+            document.title = 'EskaBoard (متوقف)';
+        }
+
+        async function call(method, path) {
+            const r = await fetch(path + '?' + q, { method: method, cache: 'no-store' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        }
+
+        async function poll() {
+            try {
+                show(await call('GET', '/state'));
+                failures = 0;
+            } catch (e) {
+                // The program is gone (stopped, or the PC restarted)
+                if (++failures >= 2) return showStopped();
+            }
+            if (!ended) setTimeout(poll, 1000);
+        }
+
+        newBtn.addEventListener('click', async () => {
+            newBtn.disabled = true;
+            try { show(await call('POST', '/new-qr')); } catch (e) { /* the next poll tells */ }
+        });
+
+        stopBtn.addEventListener('click', async () => {
+            stopBtn.disabled = true;
+            newBtn.disabled = true;
+            try { show(await call('POST', '/stop')); } catch (e) { /* the next poll tells */ }
+        });
+
+        poll();
+    </script>
+</body>
+</html>
