@@ -1,6 +1,7 @@
 """aiohttp server with an encrypted WebSocket."""
 import asyncio
 import secrets
+import sys
 import time
 from collections import defaultdict, deque
 from aiohttp import web, WSMsgType, WSCloseCode
@@ -22,7 +23,8 @@ CLOSE_NEW_QR = 4003     # credentials rotated, scan the new QR
 
 
 class Server:
-    def __init__(self, injector, token, key, notify=True):
+    # notify-send; on Windows the status page shows the connection instead
+    def __init__(self, injector, token, key, notify=sys.platform != "win32"):
         self.injector = injector
         self.token = token
         self.box = Box(key)
