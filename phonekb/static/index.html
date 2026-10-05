@@ -2,161 +2,425 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
     <title>EskaBoard</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
     <style>
         :root {
-            --bg: #1a1a1a;
-            --fg: #e0e0e0;
-            --surface: #2a2a2a;
-            --border: #444;
-            --muted-bg: #333;
-            --accent: #007bff;
-            --accent-down: #0056b3;
-            --key: #6c757d;
-            --key-down: #545b62;
-            --ok: #28a745;
-            --bad: #dc3545;
+            --bg: #0e1116;
+            --surface: #161a21;
+            --raised: #1f242d;
+            --raised-down: #2b313c;
+            --border: #2a303a;
+            --fg: #e9ecf2;
+            --muted: #8d96a7;
+            --accent: #4f8ff7;
+            --accent-down: #2f6de0;
+            --accent-soft: rgba(79, 143, 247, 0.16);
+            --on-accent: #fff;
+            --ok: #34c77b;
+            --bad: #f0524f;
+            --bad-soft: rgba(240, 82, 79, 0.14);
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+            color-scheme: dark;
         }
         @media (prefers-color-scheme: light) {
             :root {
-                --bg: #f5f5f5;
-                --fg: #333;
-                --surface: #fff;
-                --border: #ccc;
-                --muted-bg: #e2e2e2;
+                --bg: #eef1f6;
+                --surface: #ffffff;
+                --raised: #ffffff;
+                --raised-down: #e3e8f0;
+                --border: #dce1ea;
+                --fg: #1b2130;
+                --muted: #687286;
+                --accent-soft: rgba(79, 143, 247, 0.12);
+                --bad-soft: rgba(240, 82, 79, 0.1);
+                --shadow: 0 1px 2px rgba(20, 30, 50, 0.08);
+                color-scheme: light;
             }
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Noto Sans Arabic", "Segoe UI", Roboto, sans-serif;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", "Noto Sans", sans-serif;
             background: var(--bg);
             color: var(--fg);
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             height: 100dvh;
-            padding: 8px;
+            padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+                     max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
             overflow: hidden;
         }
         button {
-            background: var(--accent); color: #fff; border: none; border-radius: 8px;
-            cursor: pointer; touch-action: manipulation; font: inherit;
+            border: none; cursor: pointer; touch-action: manipulation; font: inherit; color: inherit;
+            background: none; user-select: none; -webkit-user-select: none;
         }
-        button:active { background: var(--accent-down); }
+        svg.i {
+            width: 20px; height: 20px; flex-shrink: 0;
+            fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+        }
+        [dir="rtl"] .flip-rtl { transform: scaleX(-1); }
 
-        /* Top bar: [status | إرسال/مباشر | ↺] */
+        /* ---- Top bar: status | mode | language | new ---- */
         .top-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-        .status { display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .status-dot.connected { background: var(--ok); }
-        .status-dot.disconnected { background: var(--bad); }
-        .segmented {
-            flex: 1; display: flex; padding: 3px; gap: 3px;
-            background: var(--muted-bg); border-radius: 10px;
+        .status {
+            display: flex; align-items: center; gap: 6px; height: 38px; padding: 0 10px;
+            border-radius: 19px; background: var(--raised); border: 1px solid var(--border);
+            font-size: 12.5px; font-weight: 500; white-space: nowrap; box-shadow: var(--shadow);
         }
-        .segmented button { flex: 1; padding: 7px 4px; font-size: 14px; background: transparent; color: var(--fg); }
-        .segmented button.active { background: var(--accent); color: #fff; }
-        .icon-btn { width: 38px; height: 38px; flex-shrink: 0; font-size: 18px; background: var(--key); }
-        .icon-btn:active { background: var(--key-down); }
+        /* Connected: just the green dot; the text is for when something is wrong */
+        .status.online { width: 38px; padding: 0; justify-content: center; }
+        .status.online #status-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .status-dot.connected { background: var(--ok); box-shadow: 0 0 0 3px rgba(52, 199, 123, 0.2); }
+        .status-dot.disconnected { background: var(--bad); animation: pulse 1.4s ease-in-out infinite; }
+        @keyframes pulse { 50% { opacity: 0.35; } }
+
+        .segmented {
+            flex: 1; min-width: 0; display: flex; padding: 3px; gap: 3px; height: 38px;
+            background: var(--raised); border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+        .segmented button {
+            flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 5px;
+            border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--muted);
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .segmented button svg.i { width: 16px; height: 16px; }
+        .segmented button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .segmented button.active { background: var(--accent); color: var(--on-accent); }
+        /* Offline the status needs its text: make room by dropping the mode icons */
+        .status:not(.online) ~ .segmented svg.i { display: none; }
+
+        .icon-btn {
+            position: relative; display: flex; align-items: center; justify-content: center; gap: 3px;
+            min-width: 38px; height: 38px; padding: 0 8px; flex-shrink: 0; border-radius: 12px;
+            background: var(--raised); border: 1px solid var(--border); box-shadow: var(--shadow);
+            font-size: 12px; font-weight: 700;
+        }
+        .icon-btn svg.i { width: 18px; height: 18px; }
+        .icon-btn:active { background: var(--raised-down); }
+        /* Native picker over the language button: the phone's own list */
+        .icon-btn select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; }
+
         .notice {
-            flex-shrink: 0; padding: 8px 10px; border-radius: 8px; font-size: 13px;
-            background: var(--bad); color: #fff;
+            flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+            border-radius: 12px; font-size: 13.5px; background: var(--bad-soft); color: var(--bad);
+            border: 1px solid var(--bad);
         }
         .notice[hidden] { display: none; }
 
-        /* One row of quick keys */
-        .quick-keys { display: flex; gap: 4px; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .key-btn { flex: 1 0 34px; height: 40px; padding: 0; font-size: 16px; background: var(--key); }
-        .key-btn:active { background: var(--key-down); }
-
-        /* Send row (Send mode only) */
-        .send-row { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-        .send-row[hidden] { display: none; }
-        .send-btn { flex: 1; padding: 10px; font-size: 15px; }
-        .send-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; }
-        .send-row input { accent-color: var(--accent); width: 18px; height: 18px; }
-
-        textarea {
-            flex: 1;
-            min-height: 0;
-            width: 100%;
-            padding: 12px;
-            font: inherit;
-            font-size: 18px;
-            line-height: 1.6;
-            background: var(--surface);
-            color: var(--fg);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            resize: none;
-            text-align: start;
-            outline: none;
+        /* ---- Tool bar: keys, clipboard, screenshots ---- */
+        .tools {
+            display: flex; gap: 5px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
         }
-        textarea:focus { border-color: var(--accent); }
+        .tools::-webkit-scrollbar { display: none; }
+        .tool {
+            position: relative; flex: 1 0 42px; min-width: 0; height: 56px; padding: 0 2px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            background: var(--raised); border: 1px solid var(--border); border-radius: 14px;
+            box-shadow: var(--shadow); transition: transform 0.08s, background-color 0.15s;
+        }
+        .tool:active { transform: scale(0.94); background: var(--raised-down); }
+        .tool .label {
+            max-width: 100%; font-size: 10.5px; line-height: 1.35; color: var(--muted);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .tool.erase { color: var(--bad); }
+        .tool.shot { color: var(--accent); }
+        .tool.gap { margin-inline-start: 3px; }
+        .keycap {
+            display: flex; align-items: center; height: 20px; padding: 0 4px; border: 1.8px solid currentColor;
+            border-radius: 5px; font-size: 10px; font-weight: 800; letter-spacing: 0.02em;
+        }
+        .tool .badge {
+            position: absolute; top: 4px; right: 5px; min-width: 15px; height: 15px; padding: 0 3px;
+            border-radius: 8px; background: var(--accent); color: var(--on-accent);
+            font-size: 10px; font-weight: 700; line-height: 15px; text-align: center;
+        }
+        .tool.done { animation: done 0.7s ease-out; }
+        @keyframes done {
+            0% { background: var(--ok); color: #fff; }
+            100% { background: var(--raised); }
+        }
+
+        /* ---- Composer: text box, and in Send mode its send row ---- */
+        .composer {
+            flex: 1; min-height: 0; display: flex; flex-direction: column;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+            box-shadow: var(--shadow); overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        textarea {
+            flex: 1; min-height: 0; width: 100%; padding: 14px 16px;
+            font: inherit; font-size: 18px; line-height: 1.6;
+            background: transparent; color: var(--fg); border: none; outline: none; resize: none;
+            text-align: start;
+        }
+        textarea::placeholder { color: var(--muted); opacity: 0.8; }
+        .send-row {
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+            padding: 8px 8px 8px 12px; border-top: 1px solid var(--border);
+        }
+        [dir="rtl"] .send-row { padding: 8px 12px 8px 8px; }
+        .send-row[hidden] { display: none; }
+
+        .switch { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+        .switch input { position: absolute; opacity: 0; pointer-events: none; }
+        .switch .track {
+            position: relative; width: 36px; height: 22px; flex-shrink: 0; border-radius: 11px;
+            background: var(--raised-down); border: 1px solid var(--border); transition: background-color 0.15s;
+        }
+        .switch .track::after {
+            content: ""; position: absolute; top: 2px; inset-inline-start: 2px; width: 16px; height: 16px;
+            border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            transition: inset-inline-start 0.15s;
+        }
+        .switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+        .switch input:checked + .track::after { inset-inline-start: 16px; }
+        .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .send-btn {
+            display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; flex-shrink: 0;
+            border-radius: 21px; font-size: 15px; font-weight: 600; color: var(--on-accent);
+            background: linear-gradient(180deg, var(--accent), var(--accent-down));
+            box-shadow: 0 2px 8px rgba(47, 109, 224, 0.35); transition: transform 0.08s;
+        }
+        .send-btn:active { transform: scale(0.96); }
+        .send-btn svg.i { width: 18px; height: 18px; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
+        }
     </style>
 </head>
 <body>
-    <div class="top-bar">
-        <div class="status">
+    <!-- Icons (Lucide, ISC license) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+        <symbol id="i-live" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+        <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+        <symbol id="i-new" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+        <symbol id="i-enter" viewBox="0 0 24 24"><path d="m9 10-5 5 5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></symbol>
+        <symbol id="i-erase" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+        <symbol id="i-paste" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14h6"/><path d="M12 11v6"/></symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+    </svg>
+
+    <header class="top-bar">
+        <div class="status" id="status-pill" role="status">
             <span class="status-dot disconnected" id="status"></span>
-            <span id="status-text">غير متصل</span>
+            <span id="status-text"></span>
         </div>
-        <div class="segmented" role="group" aria-label="الوضع">
-            <button type="button" data-mode="send" aria-pressed="true" class="active">إرسال</button>
-            <button type="button" data-mode="live" aria-pressed="false">مباشر</button>
+        <div class="segmented" role="group" data-i18n-label="mode">
+            <button type="button" data-mode="send" aria-pressed="true" class="active">
+                <svg class="i flip-rtl" aria-hidden="true"><use href="#i-send"/></svg><span data-i18n="send"></span>
+            </button>
+            <button type="button" data-mode="live" aria-pressed="false">
+                <svg class="i" aria-hidden="true"><use href="#i-live"/></svg><span data-i18n="live"></span>
+            </button>
         </div>
-        <button type="button" class="icon-btn" id="new-btn" aria-label="جديد" title="جديد">↺</button>
+        <label class="icon-btn" data-i18n-title="language">
+            <svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>
+            <select id="lang" data-i18n-label="language">
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+            </select>
+        </label>
+        <button type="button" class="icon-btn" id="new-btn" data-i18n-title="new">
+            <svg class="i" aria-hidden="true"><use href="#i-new"/></svg>
+        </button>
+    </header>
+
+    <div class="notice" id="notice" role="alert" hidden>
+        <svg class="i" aria-hidden="true"><use href="#i-alert"/></svg><span id="notice-text"></span>
     </div>
 
-    <div class="notice" id="notice" role="alert" hidden></div>
-
-    <div class="quick-keys" dir="ltr">
-        <button type="button" class="key-btn" data-key="enter" aria-label="Enter">↵</button>
-        <button type="button" class="key-btn" data-key="backspace" aria-label="Backspace">⌫</button>
-        <button type="button" class="key-btn" data-key="tab" aria-label="Tab">⇥</button>
-        <button type="button" class="key-btn" data-key="left" aria-label="Left">←</button>
-        <button type="button" class="key-btn" data-key="up" aria-label="Up">↑</button>
-        <button type="button" class="key-btn" data-key="down" aria-label="Down">↓</button>
-        <button type="button" class="key-btn" data-key="right" aria-label="Right">→</button>
-        <button type="button" class="key-btn" data-key="escape" aria-label="Esc">Esc</button>
-        <button type="button" class="key-btn" data-key="ctrl+z" aria-label="Ctrl+Z">↶</button>
+    <!-- Left to right whatever the language, like the PC's screens -->
+    <div class="tools" id="quick-keys" dir="ltr">
+        <button type="button" class="tool" data-key="enter" data-i18n-title="enterTip">
+            <svg class="i" aria-hidden="true"><use href="#i-enter"/></svg><span class="label" data-i18n="enter"></span>
+        </button>
+        <button type="button" class="tool" data-key="escape" data-i18n-title="escTip">
+            <span class="keycap" aria-hidden="true">Esc</span><span class="label" data-i18n="esc"></span>
+        </button>
+        <button type="button" class="tool erase" id="erase" data-i18n-title="eraseTip">
+            <svg class="i" aria-hidden="true"><use href="#i-erase"/></svg><span class="label" data-i18n="erase"></span>
+        </button>
+        <button type="button" class="tool gap" data-key="ctrl+c" data-i18n-title="copyTip">
+            <svg class="i" aria-hidden="true"><use href="#i-copy"/></svg><span class="label" data-i18n="copy"></span>
+        </button>
+        <button type="button" class="tool" data-key="ctrl+v" data-i18n-title="pasteTip">
+            <svg class="i" aria-hidden="true"><use href="#i-paste"/></svg><span class="label" data-i18n="paste"></span>
+        </button>
+        <!-- Screenshot buttons, one per screen, added when the PC says how many -->
     </div>
 
-    <div class="send-row" id="send-row">
-        <button type="button" class="send-btn" id="send">إرسال إلى الحاسوب</button>
-        <label><input type="checkbox" id="autoenter"> اضغط Enter بعد الإرسال</label>
+    <div class="composer">
+        <textarea id="text" dir="auto"></textarea>
+        <div class="send-row" id="send-row">
+            <label class="switch">
+                <input type="checkbox" id="autoenter"><span class="track"></span><span data-i18n="autoEnter"></span>
+            </label>
+            <button type="button" class="send-btn" id="send">
+                <span data-i18n="sendBtn"></span><svg class="i flip-rtl" aria-hidden="true"><use href="#i-send"/></svg>
+            </button>
+        </div>
     </div>
-
-    <textarea id="text" dir="auto" placeholder="اكتب هنا أو استخدم الصوت..."></textarea>
 
     <script src="nacl-fast.min.js"></script>
     <script>
+        // ---- Languages ----
+        const I18N = {
+            ar: {
+                connected: 'متصل', disconnected: 'غير متصل', mode: 'الوضع',
+                send: 'إرسال', live: 'مباشر', language: 'اللغة',
+                new: 'جديد: يفرغ الخانة دون حذف شيء من الحاسوب',
+                enter: 'إدخال', enterTip: 'Enter', esc: 'إلغاء', escTip: 'Esc',
+                erase: 'مسح', eraseTip: 'امسح من الحاسوب ما كتبه الهاتف',
+                copy: 'نسخ', copyTip: 'نسخ (Ctrl+C)', paste: 'لصق', pasteTip: 'لصق (Ctrl+V)',
+                shot: 'لقطة', shotTip: 'لقطة الشاشة', screen: 'شاشة', screenTip: 'لقطة الشاشة',
+                sendBtn: 'إرسال', autoEnter: 'Enter بعد الإرسال',
+                placeholder: 'اكتب هنا أو استخدم الصوت…',
+                noCrypto: 'تعذر تحميل مكتبة التشفير — أعد تحميل الصفحة',
+                noKey: 'لا يوجد مفتاح تشفير في الرابط — امسح رمز QR',
+                badKey: 'مفتاح التشفير غير صحيح — امسح رمز QR من جديد',
+                rejected: 'رفض الحاسوب الرسائل — أعد تحميل الصفحة',
+                replaced: 'اتصل هاتف آخر — أعد تحميل الصفحة للعودة',
+                newQr: 'تم إنشاء رمز QR جديد — امسحه',
+                expired: 'انتهت صلاحية هذا الرمز — امسح رمز QR الجديد',
+            },
+            en: {
+                connected: 'Connected', disconnected: 'Offline', mode: 'Mode',
+                send: 'Send', live: 'Live', language: 'Language',
+                new: 'New: empty the box without deleting anything on the PC',
+                enter: 'Enter', enterTip: 'Enter', esc: 'Escape', escTip: 'Esc',
+                erase: 'Erase', eraseTip: 'Delete on the PC what the phone typed',
+                copy: 'Copy', copyTip: 'Copy (Ctrl+C)', paste: 'Paste', pasteTip: 'Paste (Ctrl+V)',
+                shot: 'Capture', shotTip: 'Screenshot', screen: 'Screen', screenTip: 'Screenshot of screen',
+                sendBtn: 'Send', autoEnter: 'Enter after sending',
+                placeholder: 'Type here or use your voice…',
+                noCrypto: 'Could not load the encryption library — reload the page',
+                noKey: 'No encryption key in the link — scan the QR code',
+                badKey: 'Wrong encryption key — scan the QR code again',
+                rejected: 'The PC rejected the messages — reload the page',
+                replaced: 'Another phone connected — reload the page to take over',
+                newQr: 'A new QR code was created — scan it',
+                expired: 'This QR code has expired — scan the new one',
+            },
+            fr: {
+                connected: 'Connecté', disconnected: 'Hors ligne', mode: 'Mode',
+                send: 'Envoyer', live: 'Direct', language: 'Langue',
+                new: 'Nouveau : vider la zone sans rien effacer sur le PC',
+                enter: 'Entrée', enterTip: 'Entrée', esc: 'Échap', escTip: 'Échap',
+                erase: 'Effacer', eraseTip: 'Effacer sur le PC ce que le téléphone a tapé',
+                copy: 'Copier', copyTip: 'Copier (Ctrl+C)', paste: 'Coller', pasteTip: 'Coller (Ctrl+V)',
+                shot: 'Capture', shotTip: "Capture d'écran", screen: 'Écran', screenTip: "Capture de l'écran",
+                sendBtn: 'Envoyer', autoEnter: 'Entrée après envoi',
+                placeholder: 'Écrivez ici ou utilisez la voix…',
+                noCrypto: 'Impossible de charger la bibliothèque de chiffrement — rechargez la page',
+                noKey: 'Pas de clé de chiffrement dans le lien — scannez le code QR',
+                badKey: 'Clé de chiffrement incorrecte — scannez à nouveau le code QR',
+                rejected: 'Le PC a refusé les messages — rechargez la page',
+                replaced: "Un autre téléphone s'est connecté — rechargez la page pour reprendre",
+                newQr: 'Un nouveau code QR a été créé — scannez-le',
+                expired: 'Ce code QR a expiré — scannez le nouveau',
+            },
+        };
+
+        function load(name) {
+            try { return localStorage.getItem(name); } catch (e) { return null; }
+        }
+
+        function store(name, value) {
+            try { localStorage.setItem(name, value); } catch (e) { /* private mode */ }
+        }
+
+        // Saved choice, else the phone's language, else Arabic
+        function pickLang() {
+            const saved = load('lang');
+            if (I18N[saved]) return saved;
+            for (const tag of navigator.languages || [navigator.language || '']) {
+                const code = tag.slice(0, 2).toLowerCase();
+                if (I18N[code]) return code;
+            }
+            return 'ar';
+        }
+
+        let lang = pickLang();
+        const t = (name) => I18N[lang][name];
+
         const textarea = document.getElementById('text');
         const modeButtons = document.querySelectorAll('.segmented button');
         const newBtn = document.getElementById('new-btn');
+        const langSelect = document.getElementById('lang');
+        const quickKeys = document.getElementById('quick-keys');
+        const eraseBtn = document.getElementById('erase');
+        const statusPill = document.getElementById('status-pill');
         const statusDot = document.getElementById('status');
         const statusText = document.getElementById('status-text');
         const sendRow = document.getElementById('send-row');
         const sendBtn = document.getElementById('send');
         const autoEnter = document.getElementById('autoenter');
         const notice = document.getElementById('notice');
+        const noticeText = document.getElementById('notice-text');
         let ws = null;
         let reconnectDelay = 1000;
 
         // Mode: 'send' or 'live'
-        let mode = localStorage.getItem('mode') === 'live' ? 'live' : 'send';
+        let mode = load('mode') === 'live' ? 'live' : 'send';
         let mirror = '';  // What the PC currently has from this box (live mode only)
+        let sent = '';    // Send mode: what was sent since the last key, for مسح
         let seq = 0;  // Sequence counter for live mode
         let composing = false;
         let debounceTimer = null;
         let lastLiveSend = 0;  // time of the last live diff (throttle)
+        let isConnected = false;
+        let screenCount = 0;
+        let noticeKey = null;  // message shown in the notice, re-translated on a language change
+
+        function applyLang() {
+            const html = document.documentElement;
+            html.lang = lang;
+            html.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                el.title = t(el.dataset.i18nTitle);
+                el.setAttribute('aria-label', el.title);
+            });
+            document.querySelectorAll('[data-i18n-label]').forEach(el => {
+                el.setAttribute('aria-label', t(el.dataset.i18nLabel));
+            });
+            textarea.placeholder = t('placeholder');
+            langSelect.value = lang;
+            updateStatusText(isConnected);
+            showScreens(screenCount);
+            if (noticeKey) noticeText.textContent = t(noticeKey);
+        }
+
+        langSelect.addEventListener('change', () => {
+            lang = langSelect.value;
+            store('lang', lang);
+            applyLang();
+            textarea.focus();
+        });
 
         // Status text update
         function updateStatusText(connected) {
+            isConnected = connected;
             statusDot.classList.toggle('connected', connected);
             statusDot.classList.toggle('disconnected', !connected);
-            statusText.textContent = connected ? 'متصل' : 'غير متصل';
+            statusText.textContent = t(connected ? 'connected' : 'disconnected');
+            statusPill.classList.toggle('online', connected);
+            statusPill.title = statusText.textContent;
         }
 
         function updateMode() {
@@ -169,17 +433,23 @@
         }
 
         modeButtons.forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => e.preventDefault());
             btn.addEventListener('click', () => {
                 mode = btn.dataset.mode;
-                localStorage.setItem('mode', mode);
+                store('mode', mode);
+                sent = '';
                 updateMode();
                 textarea.focus();
             });
         });
 
-        // Initialize
-        updateMode();
-        updateStatusText(false);
+        // Brief green flash: the press went out
+        function flash(btn) {
+            btn.classList.remove('done');
+            void btn.offsetWidth;  // restart the animation
+            btn.classList.add('done');
+            if (navigator.vibrate) navigator.vibrate(15);
+        }
 
         // ---- Encryption: NaCl secretbox, key from the #k= fragment ----
         // Every frame is base64(nonce || secretbox(JSON)). The server first
@@ -235,11 +505,12 @@
             }
         }
 
-        function stop(message) {
+        function stop(messageKey) {
             stopped = true;
             ready = false;
             updateStatusText(false);
-            notice.textContent = message;
+            noticeKey = messageKey;
+            noticeText.textContent = t(messageKey);
             notice.hidden = false;
         }
 
@@ -252,10 +523,13 @@
             ws = sock;
 
             sock.onmessage = (ev) => {
-                if (ready) return;  // the server only sends the challenge
                 const msg = unseal(ev.data);
+                if (ready) {
+                    if (msg && msg.type === 'screens') showScreens(msg.count);
+                    return;
+                }
                 if (!msg || msg.type !== 'challenge' || typeof msg.sid !== 'string') {
-                    stop('مفتاح التشفير غير صحيح — امسح رمز QR من جديد');
+                    stop('badKey');
                     sock.close();
                     return;
                 }
@@ -268,15 +542,16 @@
                 // Clear on reconnect
                 textarea.value = '';
                 mirror = '';
+                sent = '';
                 seq = 0;
             };
 
             sock.onclose = (ev) => {
                 if (ws !== sock) return;
                 ready = false;
-                if (ev.code === 4001) return stop('رفض الحاسوب الرسائل — أعد تحميل الصفحة');
-                if (ev.code === 4002) return stop('اتصل هاتف آخر — أعد تحميل الصفحة للعودة');
-                if (ev.code === 4003) return stop('تم إنشاء رمز QR جديد — امسحه');
+                if (ev.code === 4001) return stop('rejected');
+                if (ev.code === 4002) return stop('replaced');
+                if (ev.code === 4003) return stop('newQr');
                 if (stopped) return;
                 updateStatusText(false);
                 retry();
@@ -292,7 +567,7 @@
         async function retry() {
             try {
                 const r = await fetch(location.pathname + location.search, { method: 'HEAD', cache: 'no-store' });
-                if (r.status === 403) return stop('انتهت صلاحية هذا الرمز — امسح رمز QR الجديد');
+                if (r.status === 403) return stop('expired');
                 if (r.status === 429) {
                     setTimeout(connect, 60000);
                     return;
@@ -350,8 +625,10 @@
             if (text.length > 0) {
                 send({ type: 'text', text: text });
                 textarea.value = '';
+                sent += text;
                 if (autoEnter.checked) {
                     send({ type: 'key', key: 'enter' });
+                    sent = '';
                 }
             }
             textarea.focus();
@@ -361,7 +638,23 @@
         newBtn.addEventListener('click', () => {
             textarea.value = '';
             mirror = '';
+            sent = '';
             textarea.focus();
+        });
+
+        // مسح: delete from the PC what this box typed (since the last key,
+        // which may have moved the cursor), and empty the box
+        eraseBtn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            textarea.value = '';
+            if (mode === 'live') {
+                flushLive();  // sends the deletion of the mirror
+            } else {
+                const count = Array.from(sent).length;
+                if (count > 0) send({ type: 'erase', count: count });
+                sent = '';
+            }
+            flash(eraseBtn);
         });
 
         // Composition tracking
@@ -389,29 +682,55 @@
             }, wait);
         });
 
-        document.querySelectorAll('.key-btn').forEach(btn => {
+        document.querySelectorAll('.tool[data-key]').forEach(btn => {
             btn.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 const key = btn.dataset.key;
 
                 if (mode === 'live') {
                     flushLive();
-
-                    // Quick keys: clear mirror after sending
-                    if (['enter', 'left', 'up', 'down', 'right', 'tab', 'escape', 'ctrl+z'].includes(key)) {
-                        send({ type: 'key', key: key });
-                        textarea.value = '';
-                        mirror = '';
-                    } else if (key === 'backspace') {
-                        if (textarea.value.length === 0) {
-                            send({ type: 'key', key: key });
-                        }
-                    }
+                    send({ type: 'key', key: key });
+                    // The text is the PC's now: clear mirror after sending
+                    textarea.value = '';
+                    mirror = '';
                 } else {
                     send({ type: 'key', key: key });
+                    sent = '';
                 }
+                flash(btn);
             });
         });
+
+        // One screenshot button per screen of the PC, left to right
+        function showScreens(count) {
+            quickKeys.querySelectorAll('[data-screen]').forEach(btn => btn.remove());
+            if (!Number.isInteger(count)) return;
+            screenCount = Math.min(Math.max(count, 0), 6);
+            const many = screenCount > 1;
+            for (let i = 0; i < screenCount; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'tool shot' + (i === 0 ? ' gap' : '');
+                btn.dataset.screen = i;
+                btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-camera"/></svg><span class="label"></span>';
+                btn.querySelector('.label').textContent = many ? t('screen') : t('shot');
+                if (many) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge';
+                    badge.textContent = i + 1;
+                    btn.appendChild(badge);
+                }
+                btn.title = many ? `${t('screenTip')} ${i + 1}` : t('shotTip');
+                btn.setAttribute('aria-label', btn.title);
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    if (mode === 'live') flushLive();
+                    send({ type: 'screenshot', screen: i });
+                    flash(btn);
+                });
+                quickKeys.appendChild(btn);
+            }
+        }
 
         // Adjust layout when keyboard opens/closes
         if (window.visualViewport) {
@@ -420,13 +739,14 @@
             });
         }
 
+        // Initialize
+        applyLang();
+        updateMode();
         textarea.focus();
         if (key) {
             connect();
         } else {
-            stop(typeof nacl === 'undefined'
-                ? 'تعذر تحميل مكتبة التشفير — أعد تحميل الصفحة'
-                : 'لا يوجد مفتاح تشفير في الرابط — امسح رمز QR');
+            stop(typeof nacl === 'undefined' ? 'noCrypto' : 'noKey');
         }
     </script>
 </body>

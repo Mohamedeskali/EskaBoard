@@ -100,6 +100,8 @@ class Service:
                 inject_worker(injector, sync_queue)
                 bridge_task = asyncio.create_task(bridge_queue(server.inject_queue, sync_queue))
                 self.on_event("ready")
+                # A phone that connected while the portal was starting
+                await server.send_screens()
 
             print("Press Ctrl+C to stop\n")
             await asyncio.Event().wait()

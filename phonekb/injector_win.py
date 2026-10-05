@@ -1,13 +1,16 @@
 """Text injection on Windows: SendInput with KEYEVENTF_UNICODE.
 
 Text goes in as Unicode characters, so Arabic is typed whatever the keyboard
-layout is and the clipboard is never touched. Special keys are virtual-key
-presses. Windows does not let a normal program type into windows of programs
-run as administrator (UIPI), and SendInput does not report it.
+layout is and the clipboard is never touched (only screenshots are put on
+it). Special keys are virtual-key presses. Windows does not let a normal
+program type into windows of programs run as administrator (UIPI), and
+SendInput does not report it.
 """
 import ctypes
 import time
 from ctypes import wintypes
+
+from . import screenshot
 
 INPUT_KEYBOARD = 1
 KEYEVENTF_EXTENDEDKEY = 0x0001
@@ -16,7 +19,12 @@ KEYEVENTF_UNICODE = 0x0004
 MAPVK_VK_TO_VSC = 0
 
 VK_CONTROL = 0x11
-VK_Z = 0x5A
+# Ctrl+letter shortcuts sent by the phone page -> letter's virtual-key code
+CTRL_KEYS = {"ctrl+c": 0x43, "ctrl+v": 0x56, "ctrl+z": 0x5A}
+
+CF_DIB = 8
+GMEM_MOVEABLE = 0x0002
+DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = -4
 
 # Key names sent by the phone page -> (virtual-key code, extended key)
 KEYS = {
@@ -68,9 +76,10 @@ def close_portal():
 
 def key_events(name):
     """Down/up events for a key name, or None if the name is unknown."""
-    if name == "ctrl+z":
-        return [(VK_CONTROL, 0, 0), (VK_Z, 0, 0),
-                (VK_Z, 0, KEYEVENTF_KEYUP), (VK_CONTROL, 0, KEYEVENTF_KEYUP)]
+    if name in CTRL_KEYS:
+        vk = CTRL_KEYS[name]
+        return [(VK_CONTROL, 0, 0), (vk, 0, 0),
+                (vk, 0, KEYEVENTF_KEYUP), (VK_CONTROL, 0, KEYEVENTF_KEYUP)]
     if name not in KEYS:
         return None
     vk, extended = KEYS[name]
@@ -104,6 +113,12 @@ class Injector:
         self._map_key = user32.MapVirtualKeyW
         self._map_key.argtypes = (wintypes.UINT, wintypes.UINT)
         self._map_key.restype = wintypes.UINT
+        # Real pixels on scaled (HiDPI) screens, for monitor sizes and screenshots
+        try:
+            user32.SetProcessDpiAwarenessContext(
+                ctypes.c_void_p(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
+        except AttributeError:  # before Windows 10 1703
+            pass
         print("Keyboard input ready (SendInput)")
 
     def _send(self, events):
@@ -145,3 +160,85 @@ class Injector:
             return
         self._send(key_events("backspace") * count)
         print(f"Backspace x{count}")
+
+    # ---- screenshots ----
+
+    def screens(self):
+        return max(1, len(monitors()))
+
+    def screenshot(self, index):
+        """Save a screenshot of monitor index (left to right) and put it on
+        the clipboard, like Win+Shift+S does."""
+        from PIL import ImageGrab
+        rects = monitors()
+        if 0 <= index < len(rects):
+            x, y, w, h = rects[index]
+            image = ImageGrab.grab(bbox=(x, y, x + w, y + h), all_screens=True)
+        else:
+            image = ImageGrab.grab(all_screens=True)
+        png = screenshot.to_png(image)
+        path = screenshot.save(png, index + 1)
+        set_clipboard_image(screenshot.to_dib(image), png)
+        print(f"Screenshot of screen {index + 1}: {path}")
+
+
+def monitors():
+    """Monitor rectangles (x, y, width, height) in desktop pixels, left to right."""
+    rects = []
+    enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HMONITOR, wintypes.HDC,
+                                   ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
+
+    def on_monitor(_monitor, _dc, rect, _data):
+        r = rect.contents
+        rects.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
+        return True
+
+    ctypes.windll.user32.EnumDisplayMonitors(None, None, enum_proc(on_monitor), 0)
+    return sorted(rects)
+
+
+def set_clipboard_image(dib, png):
+    """Put an image on the clipboard as a bitmap (every app) and PNG (browsers)."""
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    user32.CreateWindowExW.restype = wintypes.HWND
+    user32.CreateWindowExW.argtypes = (
+        wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD,
+        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID)
+    user32.DestroyWindow.argtypes = (wintypes.HWND,)
+    user32.OpenClipboard.argtypes = (wintypes.HWND,)
+    user32.RegisterClipboardFormatW.argtypes = (wintypes.LPCWSTR,)
+    user32.RegisterClipboardFormatW.restype = wintypes.UINT
+    user32.SetClipboardData.argtypes = (wintypes.UINT, wintypes.HANDLE)
+    user32.SetClipboardData.restype = wintypes.HANDLE
+    kernel32.GlobalAlloc.argtypes = (wintypes.UINT, ctypes.c_size_t)
+    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+    kernel32.GlobalLock.argtypes = (wintypes.HGLOBAL,)
+    kernel32.GlobalLock.restype = wintypes.LPVOID
+    kernel32.GlobalUnlock.argtypes = (wintypes.HGLOBAL,)
+    kernel32.GlobalFree.argtypes = (wintypes.HGLOBAL,)
+
+    # The clipboard needs an owner window; a hidden one is enough
+    hwnd = user32.CreateWindowExW(0, "STATIC", None, 0, 0, 0, 0, 0, None, None, None, None)
+    try:
+        for _ in range(20):  # another program may have it open for a moment
+            if user32.OpenClipboard(hwnd):
+                break
+            time.sleep(0.05)
+        else:
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            user32.EmptyClipboard()
+            for fmt, data in ((CF_DIB, dib), (user32.RegisterClipboardFormatW("PNG"), png)):
+                handle = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
+                ctypes.memmove(kernel32.GlobalLock(handle), data, len(data))
+                kernel32.GlobalUnlock(handle)
+                if not user32.SetClipboardData(fmt, handle):
+                    kernel32.GlobalFree(handle)  # still ours if it was not taken
+                    raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            user32.CloseClipboard()
+    finally:
+        if hwnd:
+            user32.DestroyWindow(hwnd)
