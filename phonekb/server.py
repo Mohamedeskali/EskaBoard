@@ -91,6 +91,10 @@ class Server:
         """tweetnacl for the page (public library, no token needed)."""
         return web.FileResponse(STATIC / "nacl-fast.min.js")
 
+    async def handle_icon(self, request):
+        """App icon for the browser tab and the home screen (public, no token needed)."""
+        return web.FileResponse(ICON, headers={"Cache-Control": "max-age=86400"})
+
     async def _reject(self, ws, ip, reason):
         print(f"Rejected {ip}: {reason}")
         await ws.close(code=CLOSE_BAD_FRAME, message=reason.encode()[:120])
@@ -235,6 +239,7 @@ class Server:
         app.on_shutdown.append(self._close_sockets)
         app.router.add_get("/", self.handle_index)
         app.router.add_get("/nacl-fast.min.js", self.handle_nacl)
+        app.router.add_get("/icon.png", self.handle_icon)
         app.router.add_get("/ws", self.handle_ws)
         return app
 

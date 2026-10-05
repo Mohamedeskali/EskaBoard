@@ -75,6 +75,7 @@ Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan 
 - On Windows you can close the page: EskaBoard keeps running. Open EskaBoard from the Start menu to see the page again.
 
 On the phone:
+- **🌐**: the page's language: العربية, English or Français. It follows the phone's language until you pick one.
 - **مباشر (Live)**: text appears on the PC as you type or dictate
 - **إرسال (Send)**: type first, then send it all at once (optionally followed by Enter)
 - Quick keys:
