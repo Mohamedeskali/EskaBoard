@@ -148,6 +148,7 @@ class Server:
         last_seq = 0
         self._event("connected", f"Phone connected ({ip})", ip)
         self._notify_connected(ip)
+        await self.send_screens()
 
         try:
             async for msg in ws:
@@ -186,6 +187,22 @@ class Server:
                 self._event("disconnected", "Phone disconnected")
 
         return ws
+
+    async def send_screens(self):
+        """Tell the phone how many screens can be captured (one button each)."""
+        ws, injector = self.ws, self.injector
+        if not ws or not hasattr(injector, "screens"):
+            return
+        try:
+            count = await asyncio.get_running_loop().run_in_executor(None, injector.screens)
+        except Exception as e:
+            print(f"Could not count screens: {e}")
+            return
+        if self.ws is ws and not ws.closed:
+            try:
+                await ws.send_str(self.box.seal({"type": "screens", "count": count}))
+            except ConnectionResetError:
+                pass  # the phone just went away
 
     def _notify_connected(self, ip):
         if not self.notify:
@@ -237,6 +254,12 @@ class DryRunInjector:
     def type_text_live(self, text):
         print(f"[dry-run] live text: {text!r}")
 
+    def screens(self):
+        return 1
+
+    def screenshot(self, index):
+        print(f"[dry-run] screenshot of screen {index + 1}")
+
 
 IDLE_RESTORE_SECONDS = 1.0  # typing pause after which the clipboard is restored
 
@@ -271,6 +294,15 @@ def inject_worker(injector, queue):
                 elif msg_type == "key":
                     key = data.get("key", "")
                     injector.press(key)
+                elif msg_type == "erase":
+                    # Delete what the phone typed (Send mode's "مسح")
+                    count = data.get("count")
+                    if type(count) is int and count > 0:
+                        injector.press_backspace(count)
+                elif msg_type == "screenshot":
+                    screen = data.get("screen")
+                    if type(screen) is int:
+                        injector.screenshot(screen)
                 elif msg_type == "live":
                     delete_count = data.get("delete", 0)
                     insert = data.get("insert", "")

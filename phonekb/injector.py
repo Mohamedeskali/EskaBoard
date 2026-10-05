@@ -8,6 +8,8 @@ import atexit
 from pathlib import Path
 from gi.repository import Gio, GLib
 
+from . import gnome_shot, screenshot
+
 BUS_NAME = "org.freedesktop.portal.Desktop"
 OBJ_PATH = "/org/freedesktop/portal/desktop"
 RD_IFACE = "org.freedesktop.portal.RemoteDesktop"
@@ -26,10 +28,11 @@ DIALOG_TIMEOUT = 300
 
 TOKEN_PATH = Path.home() / ".config" / "phonekb" / "restore_token"
 
-# What we offer when we own the clipboard (always UTF-8 text)
+# What we offer for text we own on the clipboard (always UTF-8)
 OFFER_MIMES = ["text/plain;charset=utf-8", "text/plain", "UTF8_STRING"]
 # What we accept when reading someone else's clipboard, best first
 READ_MIMES = ["text/plain;charset=utf-8", "UTF8_STRING", "text/plain"]
+IMAGE_MIME = "image/png"
 PASTE_TIMEOUT = 1.0  # seconds to wait for the focused app to read a paste
 
 # X11 keysym values
@@ -43,9 +46,11 @@ KEYSYMS = {
     "up": 0xFF52,
     "right": 0xFF53,
     "down": 0xFF54,
+    "c": 0x0063,
     "v": 0x0076,
     "z": 0x007A,
 }
+CTRL_KEYS = {"ctrl+c": "c", "ctrl+v": "v", "ctrl+z": "z"}
 
 _portals = []
 _shutting_down = False
@@ -88,7 +93,7 @@ class Portal:
         # Portal clipboard (RemoteDesktop sessions): we serve our own text on
         # SelectionTransfer, so no wl-copy process and no stale content.
         self.clipboard = False
-        self._clip_data = b""
+        self._clip_offer = {}     # mime type -> bytes we serve
         self._clip_owner = False  # our session owns the selection
         self._clip_mimes = []     # mime types of the current selection
         self._clip_served = threading.Event()
@@ -327,10 +332,10 @@ class Portal:
             self._clip_mimes = list(opts.get("mime_types", []))
 
     def _on_transfer(self, _conn, _sender, _path, _iface, _signal, params):
-        session, _mime, serial = params.unpack()
+        session, mime, serial = params.unpack()
         if session != self.session:
             return
-        data = self._clip_data
+        data = self._clip_offer.get(mime, b"")
         # Write off the loop thread so a slow reader can't stall it
         threading.Thread(target=self._write_selection, args=(session, serial, data),
                          daemon=True).start()
@@ -358,18 +363,19 @@ class Portal:
             Gio.DBusCallFlags.NONE, 5000, None, None)
         return fds.get(result.unpack()[0])
 
-    def set_clipboard(self, data):
-        """Own the selection with data (bytes); we serve it on every read."""
-        self._clip_data = data
+    def set_clipboard(self, offer):
+        """Own the selection with offer ({mime type: bytes}); we serve it on
+        every read."""
+        self._clip_offer = dict(offer)
         self.bus.call_sync(BUS_NAME, OBJ_PATH, CLIP_IFACE, "SetSelection",
                            GLib.Variant("(oa{sv})", (self.session, {
-                               "mime_types": GLib.Variant("as", OFFER_MIMES)})),
+                               "mime_types": GLib.Variant("as", list(offer))})),
                            None, Gio.DBusCallFlags.NONE, 5000, None)
 
     def paste(self, data):
-        """Put data on the clipboard, press Ctrl+V and wait until the focused
-        app has read it. Returns False if nobody read it in time."""
-        self.set_clipboard(data)
+        """Put text (bytes) on the clipboard, press Ctrl+V and wait until the
+        focused app has read it. Returns False if nobody read it in time."""
+        self.set_clipboard(text_offer(data))
         self._clip_served.clear()
         self.ctrl_v()
         return self._clip_served.wait(PASTE_TIMEOUT)
@@ -377,10 +383,24 @@ class Portal:
     def owns_clipboard(self):
         return self._clip_owner
 
+    def current_offer(self):
+        """What we serve while we own the selection, or None."""
+        return dict(self._clip_offer) or None
+
     def read_clipboard(self):
-        """Text of the current selection (bytes), or None if empty/not text."""
+        """The current selection as an offer for set_clipboard (its text, or
+        else a PNG image), or None if empty or neither."""
         mime = next((m for m in READ_MIMES if m in self._clip_mimes), None)
-        if not mime or not self.session:
+        if mime:
+            data = self._read(mime)
+            return None if data is None else text_offer(data)
+        if IMAGE_MIME in self._clip_mimes:
+            data = self._read(IMAGE_MIME)
+            return None if data is None else {IMAGE_MIME: data}
+        return None
+
+    def _read(self, mime):
+        if not self.session:
             return None
         try:
             fd = self._fd_call("SelectionRead", GLib.Variant("(os)", (self.session, mime)))
@@ -388,7 +408,7 @@ class Portal:
             print(f"Clipboard read failed: {e.message}")
             return None
         chunks = []
-        deadline = time.monotonic() + 1.0
+        deadline = time.monotonic() + 2.0
         try:
             while True:
                 left = deadline - time.monotonic()
@@ -418,11 +438,18 @@ class Portal:
         self.keysym(sym, False)
         time.sleep(0.01)
 
-    def ctrl_v(self):
-        """Send Ctrl+V."""
+    def ctrl(self, letter):
+        """Send Ctrl+letter."""
         self.keysym(KEYSYMS["ctrl"], True)
-        self.tap(KEYSYMS["v"])
+        self.tap(KEYSYMS[letter])
         self.keysym(KEYSYMS["ctrl"], False)
+
+    def ctrl_v(self):
+        self.ctrl("v")
+
+
+def text_offer(data):
+    return {mime: data for mime in OFFER_MIMES}
 
 
 class Injector:
@@ -445,7 +472,7 @@ class Injector:
         if self._initialized:
             return
         self._initialized = True
-        self._saved = None    # user's clipboard text, restored when typing pauses
+        self._saved = None    # user's clipboard, restored when typing pauses
         self._dirty = False   # clipboard currently holds text we typed
         
         # The portal lives on its own thread: it must keep running a loop
@@ -496,10 +523,11 @@ class Injector:
         portal = self.portal
         
         if portal.clipboard:
-            # Remember the user's clipboard once per burst (not when it
-            # already holds our text or the restored copy)
-            if not self._dirty and not portal.owns_clipboard():
-                self._saved = portal.read_clipboard()
+            # Remember the user's clipboard once per burst. When we own it, it
+            # holds the restored copy or a screenshot: keep what we serve.
+            if not self._dirty:
+                self._saved = (portal.current_offer() if portal.owns_clipboard()
+                               else portal.read_clipboard())
             self._dirty = True
             if not portal.paste(data):
                 print("Paste not read by the focused app within 1s")
@@ -514,16 +542,17 @@ class Injector:
             time.sleep(0.15)  # let the app read before anything changes it
     
     def idle(self):
-        """Typing paused: put the user's clipboard back."""
+        """Typing paused: put the user's clipboard back. True if it did."""
         if not self._dirty:
-            return
+            return False
         self._dirty = False
         if self._saved is None:
-            return
+            return False
         if self.portal.clipboard:
             self.portal.set_clipboard(self._saved)
         else:
             self._wl_set(self._saved)
+        return True
     
     # ---- typing ----
     
@@ -540,10 +569,13 @@ class Injector:
     
     def press(self, key):
         """Press a special key."""
-        if key == "ctrl+z":
-            self.portal.keysym(KEYSYMS["ctrl"], True)
-            self.portal.tap(KEYSYMS["z"])
-            self.portal.keysym(KEYSYMS["ctrl"], False)
+        if key in ("ctrl+c", "ctrl+v"):
+            # Put the user's clipboard back first: Ctrl+V must paste it, not
+            # the text we typed, and a later restore must not undo Ctrl+C
+            if self.idle() and not self.portal.clipboard:
+                time.sleep(0.15)  # let wl-copy take over
+        if key in CTRL_KEYS:
+            self.portal.ctrl(CTRL_KEYS[key])
         elif key in KEYSYMS:
             self.portal.tap(KEYSYMS[key])
         else:
@@ -560,3 +592,26 @@ class Injector:
             self.portal.tap(KEYSYMS["backspace"])
             time.sleep(0.004)  # 4ms between presses
         print(f"Backspace x{count}")
+
+    # ---- screenshots ----
+
+    def screens(self):
+        """Number of monitors (1 if the layout can't be read)."""
+        return max(1, len(gnome_shot.monitors()))
+
+    def screenshot(self, index):
+        """Save a screenshot of monitor index (left to right) and put it on
+        the clipboard, where it stays until something else is copied."""
+        png = gnome_shot.capture()
+        rects = gnome_shot.monitors()
+        if len(rects) > 1 and 0 <= index < len(rects):
+            png = screenshot.crop(png, rects, index)
+        path = screenshot.save(png, index + 1)
+        # Typing later saves and restores the image like any clipboard
+        self._dirty = False
+        self._saved = None
+        if self.portal.clipboard:
+            self.portal.set_clipboard({IMAGE_MIME: png})
+        else:
+            subprocess.run(["wl-copy", "--type", IMAGE_MIME], input=png, timeout=3)
+        print(f"Screenshot of screen {index + 1}: {path}")

@@ -77,7 +77,11 @@ Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan 
 On the phone:
 - **مباشر (Live)**: text appears on the PC as you type or dictate
 - **إرسال (Send)**: type first, then send it all at once (optionally followed by Enter)
-- Quick keys: Enter, Backspace, Tab, arrows, Esc, Ctrl+Z
+- Quick keys:
+  - **↵** Enter and **Esc**
+  - **مسح** (erase): deletes from the PC what the phone typed since the last quick key, and empties the text box. Only the phone's own text is deleted, never the rest of the document.
+  - **نسخ** (copy, Ctrl+C) and **لصق** (paste, Ctrl+V)
+  - **📷** (screenshot): one button per screen of the PC (**📷 1**, **📷 2**… from left to right). The screenshot is saved in `Pictures/Screenshots` and put on the clipboard, so you can paste it anywhere with Ctrl+V or **لصق**.
 
 ### Tip: live translation
 
@@ -134,7 +138,9 @@ phonekb/
   server.py        web server, encrypted WebSocket, token/IP checks, typing worker
   secure.py        NaCl secretbox helpers (key, encrypt, decrypt)
   injector.py      Ubuntu: GNOME Remote Desktop portal: permission, keys, clipboard paste
-  injector_win.py  Windows: SendInput (Unicode characters and virtual keys)
+  injector_win.py  Windows: SendInput (Unicode characters and virtual keys), screenshots
+  gnome_shot.py    Ubuntu: monitor layout (Mutter) and the Screenshot portal
+  screenshot.py    Cropping one screen, saving PNG files
   netinfo.py       finds the PC's LAN IP
   static/
     index.html     the phone page
@@ -145,8 +151,8 @@ phonekb/
 ## How it works
 
 - Each run creates a random token (`?t=`) and a 32-byte key (`#k=`) in the QR link. The key never goes over the network. Every WebSocket message is encrypted (NaCl secretbox) with a session id and a counter, so plaintext, a wrong key and replayed messages are rejected. 5 bad tokens from one IP block it for 60 s.
-- Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts your own copied text back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
-- Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used. Special keys are sent as key presses.
+- Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts what you had copied (text or image) back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
+- Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used (only screenshots are put on it). Special keys are sent as key presses.
 - Windows: the page with the QR code is served on `127.0.0.1` only, on a random port, and needs a random secret that is in the address the browser opens. It cannot be reached from the network, because the QR contains the key.
 - `qr.png` (terminal mode) contains the token and key: it is git-ignored, don't share it.
 
@@ -154,7 +160,8 @@ phonekb/
 
 - Keep the target window focused while typing.
 - One phone at a time.
-- Ubuntu: GNOME on Wayland only. Terminals paste with Ctrl+Shift+V, so typing into a terminal may not work. Only text clipboards are restored (a copied image is replaced by the typed text).
+- Ubuntu: GNOME on Wayland only. Terminals paste with Ctrl+Shift+V, so typing into a terminal may not work, and in a terminal **نسخ** (Ctrl+C) stops the running command instead of copying. Only text and PNG images on the clipboard are restored after typing.
+- Screenshots on Ubuntu are taken through GNOME's Screenshot portal; GNOME may ask for permission the first time.
 - Windows: nothing can be typed into programs running as administrator (Windows blocks it), or on the lock screen and UAC prompts. A few programs that read raw keys (some games, remote-desktop tools) ignore Unicode typing.
 
 ## Troubleshooting

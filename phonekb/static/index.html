@@ -111,16 +111,13 @@
 
     <div class="notice" id="notice" role="alert" hidden></div>
 
-    <div class="quick-keys" dir="ltr">
+    <div class="quick-keys" id="quick-keys" dir="ltr">
         <button type="button" class="key-btn" data-key="enter" aria-label="Enter">↵</button>
-        <button type="button" class="key-btn" data-key="backspace" aria-label="Backspace">⌫</button>
-        <button type="button" class="key-btn" data-key="tab" aria-label="Tab">⇥</button>
-        <button type="button" class="key-btn" data-key="left" aria-label="Left">←</button>
-        <button type="button" class="key-btn" data-key="up" aria-label="Up">↑</button>
-        <button type="button" class="key-btn" data-key="down" aria-label="Down">↓</button>
-        <button type="button" class="key-btn" data-key="right" aria-label="Right">→</button>
         <button type="button" class="key-btn" data-key="escape" aria-label="Esc">Esc</button>
-        <button type="button" class="key-btn" data-key="ctrl+z" aria-label="Ctrl+Z">↶</button>
+        <button type="button" class="key-btn" id="erase" title="امسح من الحاسوب ما كتبه الهاتف">مسح</button>
+        <button type="button" class="key-btn" data-key="ctrl+c" title="Ctrl+C">نسخ</button>
+        <button type="button" class="key-btn" data-key="ctrl+v" title="Ctrl+V">لصق</button>
+        <!-- Screenshot buttons, one per screen, added when the PC says how many -->
     </div>
 
     <div class="send-row" id="send-row">
@@ -135,6 +132,8 @@
         const textarea = document.getElementById('text');
         const modeButtons = document.querySelectorAll('.segmented button');
         const newBtn = document.getElementById('new-btn');
+        const quickKeys = document.getElementById('quick-keys');
+        const eraseBtn = document.getElementById('erase');
         const statusDot = document.getElementById('status');
         const statusText = document.getElementById('status-text');
         const sendRow = document.getElementById('send-row');
@@ -147,6 +146,7 @@
         // Mode: 'send' or 'live'
         let mode = localStorage.getItem('mode') === 'live' ? 'live' : 'send';
         let mirror = '';  // What the PC currently has from this box (live mode only)
+        let sent = '';    // Send mode: what was sent since the last key, for مسح
         let seq = 0;  // Sequence counter for live mode
         let composing = false;
         let debounceTimer = null;
@@ -172,6 +172,7 @@
             btn.addEventListener('click', () => {
                 mode = btn.dataset.mode;
                 localStorage.setItem('mode', mode);
+                sent = '';
                 updateMode();
                 textarea.focus();
             });
@@ -252,8 +253,11 @@
             ws = sock;
 
             sock.onmessage = (ev) => {
-                if (ready) return;  // the server only sends the challenge
                 const msg = unseal(ev.data);
+                if (ready) {
+                    if (msg && msg.type === 'screens') showScreens(msg.count);
+                    return;
+                }
                 if (!msg || msg.type !== 'challenge' || typeof msg.sid !== 'string') {
                     stop('مفتاح التشفير غير صحيح — امسح رمز QR من جديد');
                     sock.close();
@@ -268,6 +272,7 @@
                 // Clear on reconnect
                 textarea.value = '';
                 mirror = '';
+                sent = '';
                 seq = 0;
             };
 
@@ -350,8 +355,10 @@
             if (text.length > 0) {
                 send({ type: 'text', text: text });
                 textarea.value = '';
+                sent += text;
                 if (autoEnter.checked) {
                     send({ type: 'key', key: 'enter' });
+                    sent = '';
                 }
             }
             textarea.focus();
@@ -361,7 +368,22 @@
         newBtn.addEventListener('click', () => {
             textarea.value = '';
             mirror = '';
+            sent = '';
             textarea.focus();
+        });
+
+        // مسح: delete from the PC what this box typed (since the last key,
+        // which may have moved the cursor), and empty the box
+        eraseBtn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            textarea.value = '';
+            if (mode === 'live') {
+                flushLive();  // sends the deletion of the mirror
+            } else {
+                const count = Array.from(sent).length;
+                if (count > 0) send({ type: 'erase', count: count });
+                sent = '';
+            }
         });
 
         // Composition tracking
@@ -389,29 +411,45 @@
             }, wait);
         });
 
-        document.querySelectorAll('.key-btn').forEach(btn => {
+        document.querySelectorAll('.key-btn[data-key]').forEach(btn => {
             btn.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 const key = btn.dataset.key;
 
                 if (mode === 'live') {
                     flushLive();
-
-                    // Quick keys: clear mirror after sending
-                    if (['enter', 'left', 'up', 'down', 'right', 'tab', 'escape', 'ctrl+z'].includes(key)) {
-                        send({ type: 'key', key: key });
-                        textarea.value = '';
-                        mirror = '';
-                    } else if (key === 'backspace') {
-                        if (textarea.value.length === 0) {
-                            send({ type: 'key', key: key });
-                        }
-                    }
+                    send({ type: 'key', key: key });
+                    // The text is the PC's now: clear mirror after sending
+                    textarea.value = '';
+                    mirror = '';
                 } else {
                     send({ type: 'key', key: key });
+                    sent = '';
                 }
             });
         });
+
+        // One screenshot button per screen of the PC, left to right
+        function showScreens(count) {
+            quickKeys.querySelectorAll('[data-screen]').forEach(btn => btn.remove());
+            if (!Number.isInteger(count)) return;
+            for (let i = 0; i < Math.min(count, 6); i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'key-btn';
+                btn.dataset.screen = i;
+                btn.textContent = count > 1 ? `📷 ${i + 1}` : '📷';
+                btn.title = count > 1 ? `لقطة الشاشة ${i + 1}` : 'لقطة الشاشة';
+                btn.setAttribute('aria-label', btn.title);
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    if (mode === 'live') flushLive();
+                    send({ type: 'screenshot', screen: i });
+                    if (navigator.vibrate) navigator.vibrate(30);
+                });
+                quickKeys.appendChild(btn);
+            }
+        }
 
         // Adjust layout when keyboard opens/closes
         if (window.visualViewport) {
