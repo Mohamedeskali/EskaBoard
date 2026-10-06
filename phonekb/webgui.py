@@ -22,7 +22,7 @@ from pathlib import Path
 import qrcode
 from aiohttp import web
 
-from .app import Service
+from .app import IDLE_EXPIRE_MINUTES, Service
 
 PAGE = Path(__file__).parent / "static" / "status.html"
 ICON = Path(__file__).resolve().parent.parent / "assets" / "eskaboard.png"
@@ -55,9 +55,10 @@ def qr_png(url):
 
 
 class StatusPage:
-    def __init__(self, host, port, dry_run):
+    def __init__(self, host, port, dry_run, expire_minutes=IDLE_EXPIRE_MINUTES):
         self.dry_run = dry_run
-        self.service = Service(host, port, dry_run, on_event=self.on_event)
+        self.service = Service(host, port, dry_run, on_event=self.on_event,
+                               expire_minutes=expire_minutes)
         self.secret = secrets.token_urlsafe(24)
         self.hosts = set()
         self.origins = set()
@@ -226,8 +227,8 @@ def _first_instance():
     return not (_mutex and ctypes.get_last_error() == ERROR_ALREADY_EXISTS)
 
 
-async def _serve(host, port, dry_run, open_browser):
-    page = StatusPage(host, port, dry_run)
+async def _serve(host, port, dry_run, open_browser, expire_minutes):
+    page = StatusPage(host, port, dry_run, expire_minutes)
     runner = web.AppRunner(page.create_app(), access_log=None)
     await runner.setup()
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -259,7 +260,7 @@ async def _serve(host, port, dry_run, open_browser):
         await runner.cleanup()
 
 
-def run_webgui(host, port, dry_run, open_browser=True):
+def run_webgui(host, port, dry_run, open_browser=True, expire_minutes=IDLE_EXPIRE_MINUTES):
     if not _first_instance():  # before the log: opening it would empty the running copy's
         try:
             url = URL_FILE.read_text().strip()
@@ -273,7 +274,7 @@ def run_webgui(host, port, dry_run, open_browser=True):
         return 0
     _redirect_output()
     try:
-        asyncio.run(_serve(host, port, dry_run, open_browser))
+        asyncio.run(_serve(host, port, dry_run, open_browser, expire_minutes))
     except KeyboardInterrupt:
         pass
     finally:

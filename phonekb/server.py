@@ -20,21 +20,28 @@ HELLO_TIMEOUT = 10
 # Room for a phone screenshot: the PNG is base64 in the JSON, which is
 # encrypted and base64 again (about 1.8x its size)
 MAX_FRAME = 32 << 20
+HEARTBEAT_SECONDS = 20  # WebSocket pings: a phone that stopped answering is dropped
 
 # Close codes the page understands; it stops reconnecting on these
 CLOSE_BAD_FRAME = 4001  # plaintext, wrong key, replay or bad hello
-CLOSE_REPLACED = 4002   # another phone connected
+CLOSE_REPLACED = 4002   # another phone connected (the page takes over again when shown)
 CLOSE_NEW_QR = 4003     # credentials rotated, scan the new QR
+# ...and reconnects at once on this one: the page was frozen in the
+# background (or the network was slow) and missed the hello deadline
+CLOSE_HELLO_TIMEOUT = 4004
 
 
 class Server:
     # notify-send; on Windows the status page shows the connection instead
-    def __init__(self, injector, token, key, notify=sys.platform != "win32"):
+    def __init__(self, injector, token, key, notify=sys.platform != "win32",
+                 heartbeat=HEARTBEAT_SECONDS):
         self.injector = injector
         self.token = token
         self.box = Box(key)
         self.notify = notify
+        self.heartbeat = heartbeat
         self.ws = None
+        self._last_active = time.monotonic()  # last time a phone was connected
         self.inject_queue = asyncio.Queue()
         self.on_event = None  # optional callback(kind, detail) for a GUI
         self._bad_tokens = defaultdict(deque)  # ip -> monotonic times
@@ -47,10 +54,17 @@ class Server:
         if self.on_event:
             self.on_event(kind, detail)
 
+    def idle_seconds(self):
+        """How long no phone has been connected (0 while one is)."""
+        if self.ws:
+            return 0.0
+        return time.monotonic() - self._last_active
+
     async def set_credentials(self, token, key):
         """Switch to a new token/key and drop the phone using the old ones."""
         self.token = token
         self.box = Box(key)
+        self._last_active = time.monotonic()
         if self.ws:
             await self.ws.close(code=CLOSE_NEW_QR, message=b"new QR")
 
@@ -111,7 +125,7 @@ class Server:
             return denied
         ip = request.remote or "?"
 
-        ws = web.WebSocketResponse(max_msg_size=MAX_FRAME)
+        ws = web.WebSocketResponse(max_msg_size=MAX_FRAME, heartbeat=self.heartbeat)
         await ws.prepare(request)
         self._sockets.add(ws)
         try:
@@ -129,7 +143,10 @@ class Server:
         try:
             msg = await asyncio.wait_for(ws.receive(), HELLO_TIMEOUT)
         except asyncio.TimeoutError:
-            await self._reject(ws, ip, "no hello")
+            # Not a bad key: the page may have been frozen in the background.
+            # It reconnects and gets a new challenge (a new sid).
+            print(f"No hello from {ip} within {HELLO_TIMEOUT}s, closing")
+            await ws.close(code=CLOSE_HELLO_TIMEOUT, message=b"no hello")
             return ws
         if msg.type != WSMsgType.TEXT:
             if msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSING, WSMsgType.CLOSED):
@@ -176,6 +193,15 @@ class Server:
                         break
                     last_ctr = ctr
 
+                    # Liveness check from the page (when it comes back to the
+                    # foreground): answered, never typed. Same sid/ctr rules.
+                    if data.get("type") == "ping":
+                        try:
+                            await ws.send_str(box.seal({"type": "pong", "ctr": ctr}))
+                        except ConnectionResetError:
+                            break
+                        continue
+
                     # For live messages, check sequence order
                     if data.get("type") == "live":
                         seq = data.get("seq", 0)
@@ -193,6 +219,7 @@ class Server:
         finally:
             if self.ws is ws:
                 self.ws = None
+                self._last_active = time.monotonic()
                 self._event("disconnected", "Phone disconnected")
 
         return ws

@@ -22,6 +22,8 @@ class BoardActivity : BaseActivity() {
     private lateinit var loading: ProgressBar
     private val handler = Handler(Looper.getMainLooper())
     private var done = false
+    private var loadFailed = false
+    private var loadFailures = 0
 
     // A screenshot from the floating button, waiting for the page to take it
     private val imageLock = Any()
@@ -59,16 +61,29 @@ class BoardActivity : BaseActivity() {
                 !link.sameOrigin(request.url.toString())
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                loadFailed = false
                 loading.visibility = View.VISIBLE
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
+                if (loadFailed) return // keep the spinner over the error page
+                loadFailures = 0
+                web.visibility = View.VISIBLE
                 loading.visibility = View.GONE
             }
 
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) finishWith(RESULT_UNREACHABLE)
+                if (!request.isForMainFrame) return
+                loadFailed = true
+                // Right after the screen comes on, Wi-Fi may still be reconnecting:
+                // try again for a while before giving up
+                if (++loadFailures > LOAD_RETRIES) {
+                    finishWith(RESULT_UNREACHABLE)
+                    return
+                }
+                web.visibility = View.INVISIBLE
+                handler.postDelayed({ if (!done) web.loadUrl(link.url) }, LOAD_RETRY_MS)
             }
 
             override fun onReceivedHttpError(
@@ -110,6 +125,13 @@ class BoardActivity : BaseActivity() {
         fun imageResult(ok: Boolean) {
             handler.post { finishImage(ok) }
         }
+
+        // The link no longer works (EskaBoard restarted, "QR جديد", or 30 min
+        // with no phone): back to the start screen to scan
+        @JavascriptInterface
+        fun linkExpired() {
+            handler.post { finishWith(RESULT_EXPIRED) }
+        }
     }
 
     /** Main thread: ask the page to send [base64Png] to the PC. */
@@ -145,6 +167,9 @@ class BoardActivity : BaseActivity() {
         web.onResume()
         // Back from Settings: buttons and language, without reloading the page
         web.evaluateJavascript("window.eskaboardApplySettings && window.eskaboardApplySettings()", null)
+        // Back from another app: the page checks its connection now
+        // (reconnects silently) instead of waiting for its next retry
+        web.evaluateJavascript("window.eskaboardResume && window.eskaboardResume()", null)
     }
 
     /** The page follows the new language itself; reloading it would cut the session. */
@@ -172,5 +197,7 @@ class BoardActivity : BaseActivity() {
         const val RESULT_BLOCKED = RESULT_FIRST_USER + 1
         const val RESULT_UNREACHABLE = RESULT_FIRST_USER + 2
         private const val IMAGE_TIMEOUT_MS = 15_000L
+        private const val LOAD_RETRIES = 10
+        private const val LOAD_RETRY_MS = 2000L
     }
 }

@@ -301,7 +301,7 @@
                 noKey: 'لا يوجد مفتاح تشفير في الرابط — امسح رمز QR',
                 badKey: 'مفتاح التشفير غير صحيح — امسح رمز QR من جديد',
                 rejected: 'رفض الحاسوب الرسائل — أعد تحميل الصفحة',
-                replaced: 'اتصل هاتف آخر — أعد تحميل الصفحة للعودة',
+                replaced: 'اتصل هاتف آخر — المس هنا للعودة',
                 newQr: 'تم إنشاء رمز QR جديد — امسحه',
                 expired: 'انتهت صلاحية هذا الرمز — امسح رمز QR الجديد',
             },
@@ -320,7 +320,7 @@
                 noKey: 'No encryption key in the link — scan the QR code',
                 badKey: 'Wrong encryption key — scan the QR code again',
                 rejected: 'The PC rejected the messages — reload the page',
-                replaced: 'Another phone connected — reload the page to take over',
+                replaced: 'Another phone connected — tap here to take over',
                 newQr: 'A new QR code was created — scan it',
                 expired: 'This QR code has expired — scan the new one',
             },
@@ -339,7 +339,7 @@
                 noKey: 'Pas de clé de chiffrement dans le lien — scannez le code QR',
                 badKey: 'Clé de chiffrement incorrecte — scannez à nouveau le code QR',
                 rejected: 'Le PC a refusé les messages — rechargez la page',
-                replaced: "Un autre téléphone s'est connecté — rechargez la page pour reprendre",
+                replaced: "Un autre téléphone s'est connecté — touchez ici pour reprendre",
                 newQr: 'Un nouveau code QR a été créé — scannez-le',
                 expired: 'Ce code QR a expiré — scannez le nouveau',
             },
@@ -466,9 +466,20 @@
         // hello, and every message carries that sid and an increasing ctr.
         const key = parseKey();
         let ready = false;   // handshake done
-        let stopped = false; // don't reconnect
+        let stopped = false; // don't reconnect (stopKey says why)
+        let stopKey = null;
         let sid = null;
         let ctr = 0;
+        let retryTimer = null;      // next reconnect attempt
+        let retrying = false;       // a reconnect check is in flight
+        let handshakeTimer = null;  // no challenge in time: try again
+        let pongTimer = null;       // no pong in time: the socket is dead
+        let pingCtr = 0;
+
+        const HANDSHAKE_MS = 8000;
+        const PONG_MS = 4000;
+        const CHECK_MS = 5000;
+        const PING_EVERY_MS = 25000;
 
         function parseKey() {
             const m = location.hash.match(/^#k=([A-Za-z0-9_-]+)$/);
@@ -516,25 +527,62 @@
 
         function stop(messageKey) {
             stopped = true;
+            stopKey = messageKey;
             ready = false;
+            clearTimers();
             updateStatusText(false);
+            // In the Android app, an expired link sends the user back to the scanner
+            if ((messageKey === 'expired' || messageKey === 'newQr') && window.EskaBoardApp) {
+                try { window.EskaBoardApp.linkExpired(); } catch (e) { /* older app */ }
+            }
             noticeKey = messageKey;
             noticeText.textContent = t(messageKey);
             notice.hidden = false;
         }
 
+        function clearTimers() {
+            clearTimeout(retryTimer);
+            clearTimeout(handshakeTimer);
+            clearTimeout(pongTimer);
+            retryTimer = handshakeTimer = pongTimer = null;
+        }
+
+        // Drop the current socket without waiting for its close handshake
+        // (a dead socket can take minutes to report its close)
+        function abandon() {
+            const sock = ws;
+            ws = null;
+            ready = false;
+            clearTimers();
+            if (sock) {
+                try { sock.close(); } catch (e) { /* already closed */ }
+            }
+            updateStatusText(false);
+        }
+
         function connect() {
             if (stopped) return;
-            ready = false;
+            abandon();
             const token = new URLSearchParams(location.search).get('t');
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const sock = new WebSocket(`${protocol}//${location.host}/ws?t=${token}`);
             ws = sock;
+            handshakeTimer = setTimeout(() => {
+                if (ws === sock && !ready) {
+                    abandon();
+                    retry();
+                }
+            }, HANDSHAKE_MS);
 
             sock.onmessage = (ev) => {
+                if (ws !== sock) return;
                 const msg = unseal(ev.data);
                 if (ready) {
                     if (msg && msg.type === 'screens') showScreens(msg.count);
+                    if (msg && msg.type === 'pong' && msg.ctr === pingCtr) {
+                        clearTimeout(pongTimer);
+                        pongTimer = null;
+                    }
                     return;
                 }
                 if (!msg || msg.type !== 'challenge' || typeof msg.sid !== 'string') {
@@ -542,14 +590,19 @@
                     sock.close();
                     return;
                 }
+                // A new session: new sid, counter from 1 again. Nothing sent on
+                // an earlier connection is ever sent again.
+                clearTimeout(handshakeTimer);
+                handshakeTimer = null;
                 sid = msg.sid;
                 ctr = 0;
                 ready = true;
                 send({ type: 'hello' });
                 updateStatusText(true);
                 reconnectDelay = 1000;
-                // Clear on reconnect
-                textarea.value = '';
+                // The PC's cursor may have moved since: start again from an
+                // empty box in live mode; keep an unsent draft in send mode
+                if (mode === 'live') textarea.value = '';
                 mirror = '';
                 sent = '';
                 seq = 0;
@@ -557,13 +610,15 @@
 
             sock.onclose = (ev) => {
                 if (ws !== sock) return;
+                ws = null;
                 ready = false;
+                clearTimers();
                 if (ev.code === 4001) return stop('rejected');
                 if (ev.code === 4002) return stop('replaced');
                 if (ev.code === 4003) return stop('newQr');
                 if (stopped) return;
                 updateStatusText(false);
-                retry();
+                retry(ev.code === 4004);  // 4004: the hello came too late (page was frozen)
             };
 
             sock.onerror = () => {
@@ -573,26 +628,88 @@
 
         // A rejected token looks like a network error to WebSocket, so ask
         // for the page once: 403 means this QR is no longer valid.
-        async function retry() {
+        async function retry(now) {
+            clearTimeout(retryTimer);
+            retryTimer = null;
+            if (stopped || retrying) return;
+            retrying = true;
+            // Bounded: after a network change the browser may pick a dead keep-alive connection
+            const abort = new AbortController();
+            const abortTimer = setTimeout(() => abort.abort(), CHECK_MS);
             try {
-                const r = await fetch(location.pathname + location.search, { method: 'HEAD', cache: 'no-store' });
+                const r = await fetch(location.pathname + location.search,
+                                      { method: 'HEAD', cache: 'no-store', signal: abort.signal });
                 if (r.status === 403) return stop('expired');
                 if (r.status === 429) {
-                    setTimeout(connect, 60000);
+                    retryTimer = setTimeout(connect, 60000);
                     return;
                 }
             } catch (e) {
                 // PC not reachable: keep retrying
+            } finally {
+                clearTimeout(abortTimer);
+                retrying = false;
             }
-            setTimeout(connect, reconnectDelay);
-            reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
+            if (stopped || ws) return;  // resume() connected meanwhile
+            retryTimer = setTimeout(connect, now ? 0 : reconnectDelay);
+            if (!now) reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
         }
 
+        // Encrypted ping (same sid/ctr rules as any message); no pong in
+        // time means the socket died while the phone was away
+        function checkAlive() {
+            if (!ready || pongTimer) return;
+            pingCtr = send({ type: 'ping' });
+            if (!pingCtr) return;
+            pongTimer = setTimeout(() => {
+                pongTimer = null;
+                reconnectDelay = 1000;
+                connect();  // if this fails too, retry() checks the link
+            }, PONG_MS);
+        }
+
+        // The page is shown again (app switch, screen on, back to the tab):
+        // reconnect now instead of waiting for a background-throttled timer
+        function resume() {
+            if (document.visibilityState === 'hidden' || !key) return;
+            if (stopped) {
+                if (stopKey !== 'replaced') return;
+                // This phone is in use again: take over from the other one
+                stopped = false;
+                stopKey = null;
+                noticeKey = null;
+                notice.hidden = true;
+                reconnectDelay = 1000;
+                connect();
+                return;
+            }
+            if (ready) return checkAlive();
+            if (ws && ws.readyState <= WebSocket.OPEN) return;  // handshake under way
+            reconnectDelay = 1000;
+            connect();
+        }
+
+        document.addEventListener('visibilitychange', resume);
+        window.addEventListener('pageshow', resume);
+        window.addEventListener('focus', resume);
+        window.addEventListener('online', resume);
+        window.eskaboardResume = resume;  // called by the Android app on resume
+        notice.addEventListener('click', () => {
+            if (stopKey === 'replaced') resume();
+            else if (stopKey === 'rejected') location.reload();
+        });
+        setInterval(() => {
+            if (document.visibilityState === 'visible') checkAlive();
+        }, PING_EVERY_MS);
+
+        // Returns the message's ctr, or 0 if not connected (nothing sent)
         function send(data) {
             if (ready && ws && ws.readyState === WebSocket.OPEN) {
                 ctr++;
                 ws.send(seal(Object.assign({}, data, { sid: sid, ctr: ctr })));
+                return ctr;
             }
+            return 0;
         }
 
         function flushLive() {
@@ -631,8 +748,7 @@
         sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         sendBtn.addEventListener('click', () => {
             const text = textarea.value;
-            if (text.length > 0) {
-                send({ type: 'text', text: text });
+            if (text.length > 0 && send({ type: 'text', text: text })) {
                 textarea.value = '';
                 sent += text;
                 if (autoEnter.checked) {
