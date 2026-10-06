@@ -40,4 +40,12 @@
     <string name="shot_copied_only">نُسخت لقطة الشاشة في الهاتف (الحاسوب غير متصل)</string>
     <string name="shot_copied_too_big">نُسخت لقطة الشاشة في الهاتف (كبيرة جدًا للحاسوب)</string>
     <string name="shot_failed">تعذر التقاط الشاشة</string>
+    <!-- Floating Enter button -->
+    <string name="enter_title">زر الإدخال العائم</string>
+    <string name="enter_explain">زر دائري ثانٍ فوق كل التطبيقات، اسحبه أينما شئت. اللمس يضغط Enter في الحاسوب ما دام EskaBoard متصلًا. يطلب Android الإذن بالظهور فوق التطبيقات الأخرى.</string>
+    <string name="enter_button">اضغط Enter في الحاسوب</string>
+    <string name="enter_channel">زر الإدخال العائم</string>
+    <string name="enter_notification_text">المس الزر لضغط Enter في الحاسوب. المس هنا للإعدادات.</string>
+    <string name="enter_not_sent">لم يُرسل Enter (الحاسوب غير متصل)</string>
+    <string name="floating_failed">تعذر تشغيل الزر العائم.</string>
 </resources>

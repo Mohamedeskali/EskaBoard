@@ -40,4 +40,12 @@
     <string name="shot_copied_only">Capture copiée sur le téléphone (PC non connecté)</string>
     <string name="shot_copied_too_big">Capture copiée sur le téléphone (trop grande pour le PC)</string>
     <string name="shot_failed">La capture d\'écran a échoué</string>
+    <!-- Floating Enter button -->
+    <string name="enter_title">Bouton Entrée flottant</string>
+    <string name="enter_explain">Un second bouton rond au-dessus de toutes les applis ; déplacez-le où vous voulez. Un appui appuie sur Entrée sur le PC quand EskaBoard est connecté. Android demande l\'affichage par-dessus les autres applis.</string>
+    <string name="enter_button">Appuyer sur Entrée sur le PC</string>
+    <string name="enter_channel">Bouton Entrée flottant</string>
+    <string name="enter_notification_text">Appuyez sur le bouton pour Entrée sur le PC. Appuyez ici pour les paramètres.</string>
+    <string name="enter_not_sent">Entrée non envoyée (PC non connecté)</string>
+    <string name="floating_failed">Le bouton flottant n\'a pas pu démarrer.</string>
 </resources>

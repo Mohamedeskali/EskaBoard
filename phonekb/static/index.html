@@ -907,17 +907,24 @@
         // The page is usually hidden then (the user is in another app), and the
         // connection may have dropped: check it with a ping, reconnect if
         // needed, and only then take the waiting image (the app gives up after 15 s)
+        // True once a ping was answered on the current connection (reconnects
+        // first if it dropped); false after SEND_IMAGE_WAIT_MS
+        async function connectedForApp() {
+            if (ready) checkAlive();
+            else resume(true);
+            const deadline = Date.now() + SEND_IMAGE_WAIT_MS;  // timers may be throttled while hidden
+            while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
+                await new Promise(r => setTimeout(r, 50));
+            }
+            return ready && !pongTimer && !!ws && ws.readyState === WebSocket.OPEN;
+        }
+
         window.eskaboardSendImage = async function () {
             let ok = false;
             try {
-                if (ready) checkAlive();
-                else resume(true);
-                const deadline = Date.now() + SEND_IMAGE_WAIT_MS;  // timers may be throttled while hidden
-                while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
-                    await new Promise(r => setTimeout(r, 200));
-                }
+                const connected = await connectedForApp();
                 const data = app.takeImage();  // base64 PNG, handed over once
-                if (data && ready && !pongTimer && ws && ws.readyState === WebSocket.OPEN) {
+                if (data && connected) {
                     send({ type: 'image', format: 'png', data: data });
                     ok = true;
                 }
@@ -925,6 +932,29 @@
                 ok = false;
             }
             try { app.imageResult(ok); } catch (e) { /* activity gone */ }
+        };
+
+        // The app's floating Enter button: same as the page's own Enter button
+        const APP_KEYS = ['enter'];
+        window.eskaboardKey = async function (key, id) {
+            let ok = false;
+            try {
+                if (APP_KEYS.includes(key) && await connectedForApp()) {
+                    if (mode === 'live') {
+                        flushLive();
+                        ok = send({ type: 'key', key: key }) > 0;
+                        // The text is the PC's now: clear mirror after sending
+                        textarea.value = '';
+                        mirror = '';
+                    } else {
+                        ok = send({ type: 'key', key: key }) > 0;
+                        sent = '';
+                    }
+                }
+            } catch (e) {
+                ok = false;
+            }
+            try { app.keyResult(id, ok); } catch (e) { /* activity gone */ }
         };
 
         if (app) {

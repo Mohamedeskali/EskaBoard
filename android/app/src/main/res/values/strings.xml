@@ -45,4 +45,12 @@
     <string name="shot_copied_only">Screenshot copied on the phone (PC not connected)</string>
     <string name="shot_copied_too_big">Screenshot copied on the phone (too large for the PC)</string>
     <string name="shot_failed">The screenshot failed</string>
+    <!-- Floating Enter button -->
+    <string name="enter_title">Floating Enter button</string>
+    <string name="enter_explain">A second round button over all apps; drag it anywhere. A tap presses Enter on the PC while EskaBoard is connected. Android asks to display over other apps.</string>
+    <string name="enter_button">Press Enter on the PC</string>
+    <string name="enter_channel">Floating Enter button</string>
+    <string name="enter_notification_text">Tap the button to press Enter on the PC. Tap here for settings.</string>
+    <string name="enter_not_sent">Enter not sent (PC not connected)</string>
+    <string name="floating_failed">The floating button could not start.</string>
 </resources>

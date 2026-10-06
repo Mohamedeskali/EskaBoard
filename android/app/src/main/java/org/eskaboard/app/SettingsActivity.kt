@@ -16,12 +16,13 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 
-/** Language, the board's tool buttons, and the floating screenshot button. */
+/** Language, the board's tool buttons, and the floating screenshot and Enter buttons. */
 @Suppress("UseSwitchCompatOrMaterialCode") // no AppCompat in this app
 class SettingsActivity : BaseActivity() {
     private lateinit var floating: Switch
+    private lateinit var floatingEnter: Switch
     private var updating = false
-    private var enabling = false // between the switch and the last permission answer
+    private var enabling: Switch? = null // the switch being turned on, until the last permission answer
 
     private val overlayPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (Settings.canDrawOverlays(this)) askNotifications() else cancelFloating(R.string.overlay_denied)
@@ -29,7 +30,7 @@ class SettingsActivity : BaseActivity() {
 
     // The service's notification; the button works without it, so the answer doesn't matter
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        askCapture()
+        afterNotifications()
     }
 
     private val capturePermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -38,8 +39,8 @@ class SettingsActivity : BaseActivity() {
             cancelFloating(R.string.capture_denied)
             return@registerForActivityResult
         }
-        enabling = false
-        if (!ShotService.start(this, result.resultCode, data)) cancelFloating(R.string.capture_denied)
+        enabling = null
+        if (!ShotService.start(this, result.resultCode, data)) cancelFloating(R.string.capture_denied, floating)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,14 +55,22 @@ class SettingsActivity : BaseActivity() {
         floating = findViewById(R.id.floating)
         floating.setOnCheckedChangeListener { _, on ->
             if (updating) return@setOnCheckedChangeListener
-            if (on) enableFloating() else stopService(Intent(this, ShotService::class.java))
+            if (on) enableFloating(floating) else stopService(Intent(this, ShotService::class.java))
+        }
+        floatingEnter = findViewById(R.id.floating_enter)
+        floatingEnter.setOnCheckedChangeListener { _, on ->
+            if (updating) return@setOnCheckedChangeListener
+            if (on) enableFloating(floatingEnter) else stopService(Intent(this, EnterService::class.java))
         }
     }
 
     override fun onResume() {
         super.onResume()
         // The service may have stopped meanwhile (notification's Stop, "stop sharing")
-        if (!enabling) setFloating(ShotService.running)
+        if (enabling == null) {
+            setChecked(floating, running(floating))
+            setChecked(floatingEnter, running(floatingEnter))
+        }
     }
 
     private fun setUpLanguage() {
@@ -96,10 +105,12 @@ class SettingsActivity : BaseActivity() {
         }
     }
 
-    // ---- floating screenshot button: overlay, notifications, then screen capture ----
+    // ---- floating buttons: overlay, notifications, then screen capture (screenshot button only) ----
 
-    private fun enableFloating() {
-        enabling = true
+    private fun enableFloating(switch: Switch) {
+        // One at a time: the other switch shows its service's state
+        enabling?.takeIf { it !== switch }?.let { setChecked(it, running(it)) }
+        enabling = switch
         if (Settings.canDrawOverlays(this)) {
             askNotifications()
         } else {
@@ -116,8 +127,18 @@ class SettingsActivity : BaseActivity() {
         ) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            askCapture()
+            afterNotifications()
         }
+    }
+
+    private fun afterNotifications() {
+        if (enabling == null) return // this screen was recreated meanwhile
+        if (enabling === floating) {
+            askCapture()
+            return
+        }
+        enabling = null
+        if (!EnterService.start(this)) cancelFloating(R.string.floating_failed, floatingEnter)
     }
 
     private fun askCapture() {
@@ -125,15 +146,17 @@ class SettingsActivity : BaseActivity() {
         capturePermission.launch(manager.createScreenCaptureIntent())
     }
 
-    private fun cancelFloating(message: Int) {
-        enabling = false
-        setFloating(false)
+    private fun cancelFloating(message: Int, switch: Switch? = enabling) {
+        enabling = null
+        switch?.let { setChecked(it, false) }
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
-    private fun setFloating(on: Boolean) {
+    private fun running(switch: Switch) = if (switch === floating) ShotService.running else EnterService.running
+
+    private fun setChecked(switch: Switch, on: Boolean) {
         updating = true
-        floating.isChecked = on
+        switch.isChecked = on
         updating = false
     }
 }

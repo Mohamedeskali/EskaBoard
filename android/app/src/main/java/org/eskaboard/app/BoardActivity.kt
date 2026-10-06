@@ -34,6 +34,10 @@ class BoardActivity : BaseActivity() {
     private var pendingDone: ((Boolean) -> Unit)? = null
     private var imageId = 0
 
+    // Keys from the floating Enter button, waiting for the page's answer
+    private val pendingKeys = mutableMapOf<Int, (Boolean) -> Unit>()
+    private var keyId = 0
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -125,9 +129,14 @@ class BoardActivity : BaseActivity() {
             pendingImage.also { pendingImage = null }
         }
 
-        /** True while the floating button runs: the page keeps its connection checked in the background. */
+        /** True while a floating button runs: the page keeps its connection checked in the background. */
         @JavascriptInterface
-        fun keepAlive(): Boolean = ShotService.running
+        fun keepAlive(): Boolean = BoardBridge.keepAlive
+
+        @JavascriptInterface
+        fun keyResult(id: Int, ok: Boolean) {
+            handler.post { finishKey(id, ok) }
+        }
 
         @JavascriptInterface
         fun imageResult(ok: Boolean) {
@@ -155,6 +164,24 @@ class BoardActivity : BaseActivity() {
         handler.postDelayed({ if (imageId == id) finishImage(false) }, IMAGE_TIMEOUT_MS)
     }
 
+    /** Main thread: ask the page to press [key] on the PC (same as its own key buttons). */
+    fun sendKey(key: String, done: (Boolean) -> Unit) {
+        if (key !in KEYS) {
+            done(false)
+            return
+        }
+        val id = ++keyId
+        pendingKeys[id] = done
+        web.evaluateJavascript("window.eskaboardKey ? (window.eskaboardKey('$key', $id), 'started') : 'no'") {
+            if (it != "\"started\"") finishKey(id, false) // page not loaded (yet), or an older PC page
+        }
+        handler.postDelayed({ finishKey(id, false) }, IMAGE_TIMEOUT_MS)
+    }
+
+    private fun finishKey(id: Int, ok: Boolean) {
+        pendingKeys.remove(id)?.invoke(ok)
+    }
+
     private fun finishImage(ok: Boolean) {
         val done = pendingDone ?: return
         pendingDone = null
@@ -170,17 +197,17 @@ class BoardActivity : BaseActivity() {
     }
 
     /**
-     * While the floating button runs, the page must stay connected behind other
-     * apps so a screenshot can reach the PC: the WebView is not paused, and its
-     * renderer keeps its priority when not visible (otherwise Android freezes it
-     * after a few seconds and the PC drops the connection). The service keeps
-     * the app's process in the foreground. Without the service: the usual
-     * battery-friendly behaviour. Main thread; also called when the service
-     * starts or stops (BoardBridge).
+     * While a floating button (screenshot or Enter) runs, the page must stay
+     * connected behind other apps so its taps reach the PC: the WebView is not
+     * paused, and its renderer keeps its priority when not visible (otherwise
+     * Android freezes it after a few seconds and the PC drops the connection).
+     * The button's service keeps the app's process in the foreground. Without
+     * one: the usual battery-friendly behaviour. Main thread; also called when
+     * a button's service starts or stops (BoardBridge).
      */
     fun applyKeepAlive() {
         if (!::web.isInitialized) return
-        val on = ShotService.running
+        val on = BoardBridge.keepAlive
         if (Build.VERSION.SDK_INT >= 26) {
             web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on)
         }
@@ -220,6 +247,8 @@ class BoardActivity : BaseActivity() {
         BoardBridge.detach(this)
         handler.removeCallbacksAndMessages(null)
         finishImage(false)
+        pendingKeys.values.toList().forEach { it(false) }
+        pendingKeys.clear()
         if (::web.isInitialized) {
             web.stopLoading()
             web.destroy()
@@ -235,5 +264,8 @@ class BoardActivity : BaseActivity() {
         private const val IMAGE_TIMEOUT_MS = 15_000L
         private const val LOAD_RETRIES = 10
         private const val LOAD_RETRY_MS = 2000L
+
+        /** Keys a floating button may press (the page checks them too). */
+        private val KEYS = setOf("enter")
     }
 }

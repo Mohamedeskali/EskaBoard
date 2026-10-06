@@ -18,9 +18,23 @@ object BoardBridge {
         if (board.get() === activity) board.clear()
     }
 
-    /** Main thread: the floating button was turned on or off. */
-    fun shotServiceChanged() {
+    /** A floating button (screenshot or Enter) runs: the board stays connected behind other apps. */
+    val keepAlive: Boolean
+        get() = ShotService.running || EnterService.running
+
+    /** Main thread: a floating button was turned on or off. */
+    fun floatingChanged() {
         board.get()?.applyKeepAlive()
+    }
+
+    /** Main thread. [done] gets true once the page sent [key] (see BoardActivity.KEYS) to the PC. */
+    fun sendKey(key: String, done: (Boolean) -> Unit) {
+        val activity = board.get()
+        if (activity == null || activity.isFinishing || activity.isDestroyed) {
+            done(false)
+            return
+        }
+        activity.sendKey(key, done)
     }
 
     /** Main thread. [done] gets true once the page sent the image to the PC. */
