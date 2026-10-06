@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0E1116</color>
+    <color name="surface">#1F242D</color>
+    <color name="surface_down">#2B313C</color>
+    <color name="border">#2A303A</color>
+    <color name="fg">#E9ECF2</color>
+    <color name="muted">#8D96A7</color>
+    <color name="bad_soft">#24F0524F</color>
+</resources>
