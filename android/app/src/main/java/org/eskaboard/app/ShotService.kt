@@ -127,11 +127,13 @@ class ShotService : Service() {
         }, main)
         startCapture()
         showButton()
+        BoardBridge.shotServiceChanged() // keep the board connected behind other apps
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         running = false
+        BoardBridge.shotServiceChanged()
         button?.let { runCatching { windows.removeView(it) } }
         button = null
         display?.release()

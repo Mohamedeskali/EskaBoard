@@ -18,6 +18,11 @@ object BoardBridge {
         if (board.get() === activity) board.clear()
     }
 
+    /** Main thread: the floating button was turned on or off. */
+    fun shotServiceChanged() {
+        board.get()?.applyKeepAlive()
+    }
+
     /** Main thread. [done] gets true once the page sent the image to the PC. */
     fun sendImage(base64Png: String, done: (Boolean) -> Unit) {
         val activity = board.get()
