@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tagline">استعمل هاتفك لوحةَ مفاتيح لحاسوبك</string>
+    <string name="scan">امسح رمز QR</string>
+    <string name="scan_prompt">وجّه الكاميرا نحو رمز QR الظاهر على الحاسوب</string>
+    <string name="or">أو</string>
+    <string name="link_hint">الصق الرابط من الحاسوب</string>
+    <string name="connect">اتصال</string>
+    <string name="reconnect">إعادة الاتصال بـ %1$s</string>
+    <string name="help">يجب أن يكون الهاتف والحاسوب على نفس شبكة Wi-Fi. افتح EskaBoard على الحاسوب لترى رمز QR.</string>
+    <string name="empty_link">الصق الرابط أولًا، أو امسح رمز QR.</string>
+    <string name="not_a_code">هذا ليس رمز QR الخاص بـ EskaBoard.</string>
+    <string name="not_a_link">هذا ليس رابط EskaBoard. يبدو هكذا: http://192.168.1.20:8765/?t=…#k=…</string>
+    <string name="expired">انتهت صلاحية هذا الرمز: أُعيد تشغيل EskaBoard أو أُنشئ رمز جديد. امسح رمز QR الجديد.</string>
+    <string name="blocked">محاولات كثيرة برمز قديم. انتظر دقيقة ثم امسح رمز QR الجديد.</string>
+    <string name="unreachable">تعذر الوصول إلى الحاسوب %1$s. تحقق من أن EskaBoard يعمل وأن الهاتف على نفس شبكة Wi-Fi.</string>
+</resources>

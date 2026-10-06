@@ -9,7 +9,7 @@ Use your phone as a keyboard for your PC. Scan a QR code, then type or dictate (
 | Ubuntu 24.04 or newer | GNOME on Wayland |
 | Windows 10 and 11 | **New in 0.2.0** |
 
-On both, the phone only needs a web browser, and it must be on the same Wi-Fi network as the PC.
+On both, the phone only needs a web browser, and it must be on the same Wi-Fi network as the PC. On Android you can also use the [EskaBoard app](#android-app).
 
 ## Ubuntu
 
@@ -71,7 +71,7 @@ This removes `%LOCALAPPDATA%\EskaBoard` (with its venv), the Start menu and desk
 
 Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan the QR code with the phone's camera.
 
-- Ubuntu shows a window; Windows shows a page in your browser. Both have the QR code, the connection status, **QR جديد** (new QR: the phone using the old one is disconnected) and **إيقاف** (stop).
+- Ubuntu shows a window; Windows shows a page in your browser. Both have the QR code, the connection status, **QR جديد** (new QR: the phone using the old one is disconnected), **نسخ الرابط** (copy link: the QR's link, for the [Android app](#android-app)) and **إيقاف** (stop).
 - On Windows you can close the page: EskaBoard keeps running. Open EskaBoard from the Start menu to see the page again.
 
 On the phone:
@@ -94,6 +94,35 @@ If your phone uses Gboard, you can write in one language and have the text arriv
 4. Type in Gboard's translate box: the translated text goes into the EskaBoard page and on to the PC, in **مباشر** or **إرسال** mode.
 
 The translation is done by Gboard on the phone, so it depends on Gboard's own language support.
+
+## Android app
+
+The EskaBoard app opens the same phone page, full screen, without the browser's address bar. It is optional: the phone's camera and browser do the same job.
+
+Install: download `EskaBoard.apk` from the [Releases](https://github.com/Mohamedeskali/EskaBoard/releases) page on the phone and open it. Android asks to allow installing apps from your browser (or file manager) the first time. It needs Android 7.0 or newer.
+
+Open the app and either:
+- **Scan the QR code**: the app's own scanner (it asks for the camera permission once), or
+- **Paste the link**: click **نسخ الرابط** on the PC, get the link to the phone (for example in a chat with yourself), and paste it in the app. You can also **Share** the link from a chat app to EskaBoard.
+
+The app remembers the last PC: **Reconnect** opens it again while EskaBoard keeps running there. If EskaBoard was restarted or **QR جديد** was pressed, the app says the code expired: scan the new one.
+
+The link holds the pairing token and the encryption key: anyone who has it and is on the same Wi-Fi can type on your PC until you press **QR جديد** or restart EskaBoard. Don't post it anywhere public. Windows' clipboard history (Win+V) keeps what you copy.
+
+Typing an IP address alone is not enough: the token and the key change every time EskaBoard starts, and the PC rejects the phone without them.
+
+### Building the app
+
+GitHub Actions builds the APK (`.github/workflows/android.yml`) on every change in `android/` and on each published release, where it attaches `EskaBoard.apk` to the release. The APK is also kept as a download on the workflow run. To build it on a PC instead, with JDK 17 and the Android SDK: `cd android && ./gradlew assembleDebug`.
+
+Android installs an update only if it is signed with the same key as the installed app. Without a key, each CI build is signed with a throwaway one, and the old app must be uninstalled first. To sign every build with the same key, create one once (`keytool` comes with Java):
+
+```bash
+keytool -genkeypair -keystore eskaboard.jks -alias eskaboard -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=EskaBoard"
+base64 -w0 eskaboard.jks   # Windows PowerShell: [Convert]::ToBase64String([IO.File]::ReadAllBytes("eskaboard.jks"))
+```
+
+Then, in the repository's **Settings > Secrets and variables > Actions**, add `ANDROID_KEYSTORE_BASE64` (the base64 text), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`eskaboard`) and `ANDROID_KEY_PASSWORD` (the same password). Keep `eskaboard.jks` and its password safe: without them, no update can be installed over the app.
 
 ## Other ways to install
 
@@ -147,6 +176,11 @@ phonekb/
     index.html     the phone page
     status.html    the Windows page
     nacl-fast.min.js  tweetnacl 1.0.3 (served locally, no CDN)
+android/           the Android app (Kotlin): QR scanner, link field, the phone page in a WebView
+  app/src/main/java/org/eskaboard/app/
+    MainActivity.kt   start screen: scan, paste or share a link, reconnect to the last PC
+    BoardActivity.kt  the phone page, full screen; stays on the PC's own address
+    BoardLink.kt      checks a link is an EskaBoard one (http://IP:PORT/?t=…#k=…)
 ```
 
 ## How it works

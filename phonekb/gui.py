@@ -1,4 +1,4 @@
-"""GTK 4 window: QR code, status, "QR جديد" and "إيقاف" buttons.
+"""GTK 4 window: QR code, status, "QR جديد", "نسخ الرابط" and "إيقاف" buttons.
 
 GTK runs in the main thread; the aiohttp server (Service) runs in its own
 thread with its own asyncio loop. Events from the service reach the window
@@ -20,6 +20,7 @@ import qrcode
 from .app import APP_ID, Service
 
 STOP_GRACE_SECONDS = 8
+COPY_LABEL = "نسخ الرابط"
 
 
 def qr_texture(url):
@@ -38,6 +39,8 @@ class PhoneKBApp(Gtk.Application):
         self.port = port
         self.dry_run = dry_run
         self.window = None
+        self.link = None
+        self.copied_timer = 0
         self.service = None
         self.thread = None
         self.loop = None
@@ -92,10 +95,14 @@ class PhoneKBApp(Gtk.Application):
         self.new_btn = Gtk.Button(label="QR جديد")
         self.new_btn.set_tooltip_text("رمز وصلاحية جديدان؛ يُفصل الهاتف المتصل بالرمز القديم")
         self.new_btn.connect("clicked", self.on_new_qr)
+        self.copy_btn = Gtk.Button(label=COPY_LABEL)
+        self.copy_btn.set_tooltip_text("رابط الهاتف، لتطبيق EskaBoard على Android (فيه مفتاح التشفير: لا تشاركه)")
+        self.copy_btn.connect("clicked", self.on_copy_link)
         self.stop_btn = Gtk.Button(label="إيقاف")
         self.stop_btn.add_css_class("destructive-action")
         self.stop_btn.connect("clicked", self.stop)
         buttons.append(self.new_btn)
+        buttons.append(self.copy_btn)
         buttons.append(self.stop_btn)
         box.append(buttons)
 
@@ -120,6 +127,7 @@ class PhoneKBApp(Gtk.Application):
     def show_qr(self, url):
         # Not printed: stdout of a menu launch goes to the systemd journal,
         # and the URL carries the pairing token and key
+        self.link = url
         self.picture.set_paintable(qr_texture(url))
 
     # ---- service thread ----
@@ -170,6 +178,7 @@ class PhoneKBApp(Gtk.Application):
         self.set_conn(f"تعذر تشغيل الخادم: {error}")
         self.input_label.set_text("")
         self.new_btn.set_sensitive(False)
+        self.copy_btn.set_sensitive(False)
         return False
 
     # ---- buttons / shutdown ----
@@ -178,12 +187,27 @@ class PhoneKBApp(Gtk.Application):
         if self.loop and not self.loop.is_closed():
             asyncio.run_coroutine_threadsafe(self.service.rotate(), self.loop)
 
+    def on_copy_link(self, _btn):
+        if not self.link:
+            return
+        self.window.get_clipboard().set(self.link)
+        self.copy_btn.set_label("تم النسخ ✓")
+        if self.copied_timer:
+            GLib.source_remove(self.copied_timer)
+        self.copied_timer = GLib.timeout_add_seconds(2, self.reset_copy_label)
+
+    def reset_copy_label(self):
+        self.copied_timer = 0
+        self.copy_btn.set_label(COPY_LABEL)
+        return False
+
     def stop(self, *_):
         if self.stopping:
             return
         self.stopping = True
         self.set_conn("جارٍ الإيقاف…")
         self.new_btn.set_sensitive(False)
+        self.copy_btn.set_sensitive(False)
         self.stop_btn.set_sensitive(False)
         if not (self.thread and self.thread.is_alive()):
             self.quit()

@@ -116,6 +116,7 @@
         </div>
         <div class="buttons">
             <button type="button" id="new" title="رمز وصلاحية جديدان؛ يُفصل الهاتف المتصل بالرمز القديم" disabled>QR جديد</button>
+            <button type="button" id="copy" title="رابط الهاتف، لتطبيق EskaBoard على Android (فيه مفتاح التشفير: لا تشاركه)" disabled>نسخ الرابط</button>
             <button type="button" id="stop" class="destructive" disabled>إيقاف</button>
         </div>
         <div class="note" id="note">
@@ -134,6 +135,9 @@
         const note = document.getElementById('note');
         const newBtn = document.getElementById('new');
         const stopBtn = document.getElementById('stop');
+        const copyBtn = document.getElementById('copy');
+        let link = '';
+        let copiedTimer = 0;
         let qrVersion = 0;
         let failures = 0;
         let ended = false;
@@ -146,6 +150,8 @@
             hint.hidden = state.connected || state.stopping;
             newBtn.disabled = !state.can_rotate;
             stopBtn.disabled = state.stopping;
+            link = state.link;
+            copyBtn.disabled = !link;
             document.title = state.connected ? '● EskaBoard' : 'EskaBoard';
             if (state.qr !== qrVersion) {
                 qrVersion = state.qr;
@@ -165,6 +171,8 @@
             qr.removeAttribute('src');
             newBtn.disabled = true;
             stopBtn.disabled = true;
+            link = '';
+            copyBtn.disabled = true;
             document.title = 'EskaBoard (متوقف)';
         }
 
@@ -188,6 +196,34 @@
         newBtn.addEventListener('click', async () => {
             newBtn.disabled = true;
             try { show(await call('POST', '/new-qr')); } catch (e) { /* the next poll tells */ }
+        });
+
+        // The page is on 127.0.0.1, a secure context, so the Clipboard API is available;
+        // the textarea is the fallback for older browsers
+        async function writeClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                const area = document.createElement('textarea');
+                area.value = text;
+                area.style.position = 'fixed';
+                area.style.opacity = '0';
+                document.body.appendChild(area);
+                area.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e2) { /* not allowed */ }
+                area.remove();
+                return ok;
+            }
+        }
+
+        copyBtn.addEventListener('click', async () => {
+            if (!link) return;
+            const ok = await writeClipboard(link);
+            copyBtn.textContent = ok ? 'تم النسخ ✓' : 'تعذر النسخ';
+            clearTimeout(copiedTimer);
+            copiedTimer = setTimeout(() => { copyBtn.textContent = 'نسخ الرابط'; }, 2000);
         });
 
         stopBtn.addEventListener('click', async () => {

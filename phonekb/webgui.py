@@ -61,7 +61,8 @@ class StatusPage:
         self.secret = secrets.token_urlsafe(24)
         self.hosts = set()
         self.origins = set()
-        self.qr = qr_png(self.service.url)
+        self.link = self.service.url  # for "نسخ الرابط" (copy link)
+        self.qr = qr_png(self.link)
         self.qr_version = 1
         self.addr = f"{host}:{port}"
         self.conn = "بانتظار الهاتف — امسح الرمز"
@@ -97,6 +98,7 @@ class StatusPage:
             self.conn = "الهاتف غير متصل"
             self.connected = False
         elif kind == "new_qr":
+            self.link = detail
             self.qr = qr_png(detail)
             self.qr_version += 1
             self.conn = "رمز QR جديد — امسحه بهاتفك"
@@ -152,6 +154,7 @@ class StatusPage:
             "addr": self.addr,
             "connected": self.connected,
             "qr": 0 if self.stopping else self.qr_version,
+            "link": "" if self.stopping else self.link,
             "can_rotate": not (self.failed or self.stopping),
             "stopping": self.stopping,
         })

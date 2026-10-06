@@ -1,0 +1,77 @@
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ["android/**", ".github/workflows/android.yml"]
+  pull_request:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach the APK to a release
+    defaults:
+      run:
+        working-directory: android
+    env:
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+      ESKABOARD_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Version name from the release tag
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: echo "ESKABOARD_VERSION_NAME=${TAG#android-v}" >> "$GITHUB_ENV"
+
+      - name: Test and lint
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+
+      - name: Build the signed APK
+        if: env.HAS_KEY == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ESKABOARD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ESKABOARD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ESKABOARD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          export ESKABOARD_KEYSTORE="$RUNNER_TEMP/eskaboard.jks"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$ESKABOARD_KEYSTORE"
+          ./gradlew --no-daemon assembleRelease
+          rm -f "$ESKABOARD_KEYSTORE"
+          cp app/build/outputs/apk/release/app-release.apk EskaBoard.apk
+
+      - name: Build the debug APK (no signing key in the repository secrets)
+        if: env.HAS_KEY != 'true'
+        run: |
+          echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: this APK has a throwaway key, so it cannot update an installed EskaBoard (uninstall first). See README, Android app."
+          ./gradlew --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk EskaBoard.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EskaBoard-apk
+          path: android/EskaBoard.apk
+
+      - name: Attach the APK to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" EskaBoard.apk --clobber --repo "$GITHUB_REPOSITORY"

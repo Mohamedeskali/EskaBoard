@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same colors as the phone page (phonekb/static/index.html) -->
+<resources>
+    <color name="bg">#EEF1F6</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_down">#E3E8F0</color>
+    <color name="border">#DCE1EA</color>
+    <color name="fg">#1B2130</color>
+    <color name="muted">#687286</color>
+    <color name="accent">#4F8FF7</color>
+    <color name="accent_down">#2F6DE0</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="bad">#F0524F</color>
+    <color name="bad_soft">#1AF0524F</color>
+</resources>
