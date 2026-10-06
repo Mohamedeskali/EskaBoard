@@ -3,7 +3,10 @@ package org.eskaboard.app
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -17,7 +20,10 @@ import androidx.activity.enableEdgeToEdge
 class BoardActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var loading: ProgressBar
+    private val handler = Handler(Looper.getMainLooper())
     private var done = false
+    private var loadFailed = false
+    private var loadFailures = 0
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,21 +46,42 @@ class BoardActivity : ComponentActivity() {
             allowContentAccess = false
             setGeolocationEnabled(false)
         }
+        // The page calls this when the link no longer works (EskaBoard restarted,
+        // "QR جديد", or 30 min with no phone): back to the start screen to scan
+        web.addJavascriptInterface(object {
+            @JavascriptInterface
+            fun linkExpired() {
+                handler.post { finishWith(RESULT_EXPIRED) }
+            }
+        }, "EskaBoardApp")
         web.webViewClient = object : WebViewClient() {
             // Only the PC's own page: there are no other links on it
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
                 !link.sameOrigin(request.url.toString())
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                loadFailed = false
                 loading.visibility = View.VISIBLE
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
+                if (loadFailed) return // keep the spinner over the error page
+                loadFailures = 0
+                web.visibility = View.VISIBLE
                 loading.visibility = View.GONE
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) finishWith(RESULT_UNREACHABLE)
+                if (!request.isForMainFrame) return
+                loadFailed = true
+                // Right after the screen comes on, Wi-Fi may still be reconnecting:
+                // try again for a while before giving up
+                if (++loadFailures > LOAD_RETRIES) {
+                    finishWith(RESULT_UNREACHABLE)
+                    return
+                }
+                web.visibility = View.INVISIBLE
+                handler.postDelayed({ if (!done) web.loadUrl(link.url) }, LOAD_RETRY_MS)
             }
 
             override fun onReceivedHttpError(
@@ -84,7 +111,11 @@ class BoardActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::web.isInitialized) web.onResume()
+        if (!::web.isInitialized) return
+        web.onResume()
+        // Back from another app: the page checks its connection now
+        // (reconnects silently) instead of waiting for its next retry
+        web.evaluateJavascript("window.eskaboardResume && window.eskaboardResume()", null)
     }
 
     override fun onPause() {
@@ -93,6 +124,7 @@ class BoardActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         if (::web.isInitialized) {
             web.stopLoading()
             web.destroy()
@@ -105,5 +137,7 @@ class BoardActivity : ComponentActivity() {
         const val RESULT_EXPIRED = RESULT_FIRST_USER
         const val RESULT_BLOCKED = RESULT_FIRST_USER + 1
         const val RESULT_UNREACHABLE = RESULT_FIRST_USER + 2
+        private const val LOAD_RETRIES = 10
+        private const val LOAD_RETRY_MS = 2000L
     }
 }
