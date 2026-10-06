@@ -212,6 +212,7 @@
         <symbol id="i-erase" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
         <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
         <symbol id="i-paste" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14h6"/><path d="M12 11v6"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="m21.4 11.1-8.6 8.6a5.7 5.7 0 0 1-8-8l8.6-8.6a3.8 3.8 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.7-2.7l8-7.9"/></symbol>
         <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
         <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
     </svg>
@@ -267,6 +268,10 @@
         <button type="button" class="tool" data-tool="paste" data-key="ctrl+v" data-i18n-title="pasteTip">
             <svg class="i" aria-hidden="true"><use href="#i-paste"/></svg><span class="label" data-i18n="paste"></span>
         </button>
+        <button type="button" class="tool gap" id="files-btn" data-tool="files" data-i18n-title="filesTip">
+            <svg class="i" aria-hidden="true"><use href="#i-file"/></svg><span class="label" data-i18n="files"></span>
+        </button>
+        <input type="file" id="files-input" multiple hidden>
         <!-- Screenshot buttons, one per screen, added when the PC says how many -->
     </div>
 
@@ -294,6 +299,7 @@
                 enter: 'إدخال', enterTip: 'Enter', esc: 'إلغاء', escTip: 'Esc',
                 erase: 'مسح', eraseTip: 'امسح من الحاسوب ما كتبه الهاتف',
                 copy: 'نسخ', copyTip: 'نسخ (Ctrl+C)', paste: 'لصق', pasteTip: 'لصق (Ctrl+V)',
+                files: 'ملفات', filesTip: 'إرسال صور أو ملفات إلى الحاسوب (التنزيلات/EskaBoard)',
                 shot: 'لقطة', shotTip: 'لقطة الشاشة', screen: 'شاشة', screenTip: 'لقطة الشاشة',
                 sendBtn: 'إرسال', autoEnter: 'Enter بعد الإرسال',
                 placeholder: 'اكتب هنا أو استخدم الصوت…',
@@ -313,6 +319,7 @@
                 enter: 'Enter', enterTip: 'Enter', esc: 'Escape', escTip: 'Esc',
                 erase: 'Erase', eraseTip: 'Delete on the PC what the phone typed',
                 copy: 'Copy', copyTip: 'Copy (Ctrl+C)', paste: 'Paste', pasteTip: 'Paste (Ctrl+V)',
+                files: 'Files', filesTip: 'Send photos or files to the PC (Downloads/EskaBoard)',
                 shot: 'Capture', shotTip: 'Screenshot', screen: 'Screen', screenTip: 'Screenshot of screen',
                 sendBtn: 'Send', autoEnter: 'Enter after sending',
                 placeholder: 'Type here or use your voice…',
@@ -332,6 +339,7 @@
                 enter: 'Entrée', enterTip: 'Entrée', esc: 'Échap', escTip: 'Échap',
                 erase: 'Effacer', eraseTip: 'Effacer sur le PC ce que le téléphone a tapé',
                 copy: 'Copier', copyTip: 'Copier (Ctrl+C)', paste: 'Coller', pasteTip: 'Coller (Ctrl+V)',
+                files: 'Fichiers', filesTip: 'Envoyer des photos ou fichiers au PC (Téléchargements/EskaBoard)',
                 shot: 'Capture', shotTip: "Capture d'écran", screen: 'Écran', screenTip: "Capture de l'écran",
                 sendBtn: 'Envoyer', autoEnter: 'Entrée après envoi',
                 placeholder: 'Écrivez ici ou utilisez la voix…',
@@ -580,6 +588,7 @@
                 const msg = unseal(ev.data);
                 if (ready) {
                     if (msg && msg.type === 'screens') showScreens(msg.count);
+                    if (msg && msg.type === 'file_saved') fileSaved(msg);
                     if (msg && msg.type === 'pong' && msg.ctr === pingCtr) {
                         clearTimeout(pongTimer);
                         pongTimer = null;
@@ -881,6 +890,7 @@
         // Its settings: the page language and the tool buttons to hide
         const app = window.EskaBoardApp || null;
         let hiddenTools = [];
+        let autoPaste = false;  // a photo that reaches the PC's clipboard is pasted there too
 
         function showTools() {
             quickKeys.querySelectorAll('[data-tool]').forEach(btn => {
@@ -893,6 +903,7 @@
             let settings = {};
             try { settings = JSON.parse(app.settings()) || {}; } catch (e) { return; }
             hiddenTools = Array.isArray(settings.hidden) ? settings.hidden : [];
+            autoPaste = settings.autoPaste === true;
             if (I18N[settings.lang] && settings.lang !== lang) {
                 lang = settings.lang;
                 applyLang();
@@ -925,7 +936,7 @@
                 const connected = await connectedForApp();
                 const data = app.takeImage();  // base64 PNG, handed over once
                 if (data && connected) {
-                    send({ type: 'image', format: 'png', data: data });
+                    send({ type: 'image', format: 'png', data: data, paste: autoPaste });
                     ok = true;
                 }
             } catch (e) {
@@ -956,6 +967,92 @@
             }
             try { app.keyResult(id, ok); } catch (e) { /* activity gone */ }
         };
+
+        // ---- Photos and files to the PC (phonekb/files.py) ----
+        // Each file: file_start, file_chunk(s) in order, file_end, as encrypted
+        // messages of the session; the PC answers file_saved. A single photo
+        // also goes on the PC's clipboard (and is pasted with auto-paste).
+        const FILE_CHUNK = 256 * 1024;
+        const MAX_FILE = 500 * 1024 * 1024;  // as on the PC
+        const FILE_ANSWER_MS = 30000;
+        const filesBtn = document.getElementById('files-btn');
+        const filesInput = document.getElementById('files-input');
+        const fileWaiters = {};
+        let sendingFiles = false;
+
+        function fileSaved(msg) {
+            const waiter = fileWaiters[msg.id];
+            if (waiter) waiter(msg);
+        }
+
+        function waitFileSaved(id) {
+            return new Promise(resolve => {
+                const timer = setTimeout(() => { delete fileWaiters[id]; resolve(null); }, FILE_ANSWER_MS);
+                fileWaiters[id] = (msg) => { clearTimeout(timer); delete fileWaiters[id]; resolve(msg); };
+            });
+        }
+
+        function filesLabel(text) {
+            filesBtn.querySelector('.label').textContent = text;
+        }
+
+        async function sendOneFile(file, single, progress) {
+            if (file.size > MAX_FILE || !(await connectedForApp())) return false;
+            const id = toB64(nacl.randomBytes(9));
+            const conn = ws;
+            if (!send({ type: 'file_start', id: id, name: file.name, size: file.size, mime: file.type || '' })) return false;
+            for (let offset = 0, index = 0; offset < file.size; offset += FILE_CHUNK, index++) {
+                const chunk = new Uint8Array(await file.slice(offset, offset + FILE_CHUNK).arrayBuffer());
+                // Don't queue the whole file in memory: wait for the socket to drain
+                while (ws === conn && ready && conn.bufferedAmount > 4 * FILE_CHUNK) {
+                    await new Promise(r => setTimeout(r, 30));
+                }
+                if (ws !== conn || !ready) return false;  // reconnected meanwhile: that file is lost
+                send({ type: 'file_chunk', id: id, index: index, data: toB64(chunk) });
+                progress(offset + chunk.length);
+            }
+            const answer = waitFileSaved(id);
+            const photo = single && (file.type || '').startsWith('image/');
+            send({ type: 'file_end', id: id, clipboard: photo, paste: photo && autoPaste });
+            const msg = await answer;
+            return !!(msg && msg.ok);
+        }
+
+        async function sendFiles(list) {
+            const files = Array.from(list || []);
+            if (sendingFiles || !files.length) return;
+            sendingFiles = true;
+            filesBtn.disabled = true;
+            const total = files.reduce((n, f) => n + f.size, 0) || 1;
+            let before = 0;
+            let failed = 0;
+            try {
+                for (const file of files) {
+                    filesLabel(`${Math.floor(before / total * 100)}%`);
+                    const ok = await sendOneFile(file, files.length === 1,
+                        (bytes) => filesLabel(`${Math.floor((before + bytes) / total * 100)}%`));
+                    if (!ok) failed++;
+                    before += file.size;
+                }
+            } catch (e) {
+                failed = files.length;
+            } finally {
+                sendingFiles = false;
+                filesBtn.disabled = false;
+            }
+            filesLabel(failed ? `✗ ${files.length - failed}/${files.length}` : '✓');
+            if (!failed) flash(filesBtn);
+            setTimeout(() => { if (!sendingFiles) filesLabel(t('files')); }, failed ? 4000 : 2000);
+        }
+
+        filesBtn.addEventListener('click', () => {
+            if (!sendingFiles) filesInput.click();
+        });
+        filesInput.addEventListener('change', () => {
+            const list = Array.from(filesInput.files || []);
+            filesInput.value = '';  // the same file can be picked again
+            sendFiles(list);
+        });
 
         if (app) {
             const settingsBtn = document.getElementById('settings-btn');

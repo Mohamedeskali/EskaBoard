@@ -16,7 +16,7 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 
-/** Language, the board's tool buttons, and the floating screenshot and Enter buttons. */
+/** Language, the board's tool buttons, auto-paste, and the floating screenshot and Enter buttons. */
 @Suppress("UseSwitchCompatOrMaterialCode") // no AppCompat in this app
 class SettingsActivity : BaseActivity() {
     private lateinit var floating: Switch
@@ -51,6 +51,10 @@ class SettingsActivity : BaseActivity() {
 
         setUpLanguage()
         setUpTools()
+        findViewById<Switch>(R.id.auto_paste).apply {
+            isChecked = AppSettings.autoPaste(this@SettingsActivity)
+            setOnCheckedChangeListener { _, on -> AppSettings.setAutoPaste(this@SettingsActivity, on) }
+        }
 
         floating = findViewById(R.id.floating)
         floating.setOnCheckedChangeListener { _, on ->
@@ -92,6 +96,7 @@ class SettingsActivity : BaseActivity() {
             "erase" to R.string.tool_erase,
             "copy" to R.string.tool_copy,
             "paste" to R.string.tool_paste,
+            "files" to R.string.tool_files,
             "shots" to R.string.tool_shots,
         )
         val container = findViewById<LinearLayout>(R.id.tools)

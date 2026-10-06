@@ -53,4 +53,9 @@
     <string name="enter_notification_text">Tap the button to press Enter on the PC. Tap here for settings.</string>
     <string name="enter_not_sent">Enter not sent (PC not connected)</string>
     <string name="floating_failed">The floating button could not start.</string>
+    <!-- Photos/files and auto-paste -->
+    <string name="tool_files">Send photos and files</string>
+    <string name="pc_title">On the PC</string>
+    <string name="auto_paste_switch">Paste automatically</string>
+    <string name="auto_paste_explain">A screenshot from the floating button, or a single photo sent with “Files”, is pasted at once where the PC\'s cursor is (Ctrl+V). Files are saved in Downloads/EskaBoard on the PC.</string>
 </resources>

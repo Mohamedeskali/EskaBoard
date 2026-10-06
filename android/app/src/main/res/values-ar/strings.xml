@@ -48,4 +48,9 @@
     <string name="enter_notification_text">المس الزر لضغط Enter في الحاسوب. المس هنا للإعدادات.</string>
     <string name="enter_not_sent">لم يُرسل Enter (الحاسوب غير متصل)</string>
     <string name="floating_failed">تعذر تشغيل الزر العائم.</string>
+    <!-- Photos/files and auto-paste -->
+    <string name="tool_files">إرسال الصور والملفات</string>
+    <string name="pc_title">على الحاسوب</string>
+    <string name="auto_paste_switch">لصق تلقائي</string>
+    <string name="auto_paste_explain">لقطة الزر العائم، أو صورة واحدة تُرسل بزر «ملفات»، تُلصق فورًا حيث المؤشر في الحاسوب (Ctrl+V). تُحفظ الملفات في التنزيلات/EskaBoard على الحاسوب.</string>
 </resources>

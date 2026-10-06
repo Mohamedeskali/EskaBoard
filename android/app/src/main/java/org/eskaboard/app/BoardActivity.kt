@@ -1,7 +1,9 @@
 package org.eskaboard.app
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +11,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -16,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 
 /** EskaBoard's phone page, full screen: the same page the browser shows. */
 class BoardActivity : BaseActivity() {
@@ -37,6 +42,20 @@ class BoardActivity : BaseActivity() {
     // Keys from the floating Enter button, waiting for the page's answer
     private val pendingKeys = mutableMapOf<Int, (Boolean) -> Unit>()
     private var keyId = 0
+
+    // The page's "Files" button: Android's picker, then the chosen files back to the page
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        val uris = if (result.resultCode != RESULT_OK || data == null) {
+            null
+        } else {
+            data.clipData?.let { clip -> Array(clip.itemCount) { clip.getItemAt(it).uri } }
+                ?: data.data?.let { arrayOf(it) }
+        }
+        fileCallback?.onReceiveValue(uris)
+        fileCallback = null
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -106,6 +125,27 @@ class BoardActivity : BaseActivity() {
                         else -> RESULT_UNREACHABLE
                     }
                 )
+            }
+        }
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                view: WebView,
+                callback: ValueCallback<Array<Uri>>,
+                params: FileChooserParams,
+            ): Boolean {
+                fileCallback?.onReceiveValue(null) // an earlier picker never answered
+                fileCallback = callback
+                val pick = Intent(Intent.ACTION_GET_CONTENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*")
+                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+                return try {
+                    pickFiles.launch(pick)
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    fileCallback = null
+                    false
+                }
             }
         }
         web.loadUrl(link.url)

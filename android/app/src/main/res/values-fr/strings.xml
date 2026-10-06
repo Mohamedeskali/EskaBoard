@@ -48,4 +48,9 @@
     <string name="enter_notification_text">Appuyez sur le bouton pour Entrée sur le PC. Appuyez ici pour les paramètres.</string>
     <string name="enter_not_sent">Entrée non envoyée (PC non connecté)</string>
     <string name="floating_failed">Le bouton flottant n\'a pas pu démarrer.</string>
+    <!-- Photos/files and auto-paste -->
+    <string name="tool_files">Envoyer photos et fichiers</string>
+    <string name="pc_title">Sur le PC</string>
+    <string name="auto_paste_switch">Coller automatiquement</string>
+    <string name="auto_paste_explain">Une capture du bouton flottant, ou une seule photo envoyée avec « Fichiers », est collée tout de suite là où est le curseur du PC (Ctrl+V). Les fichiers sont enregistrés dans Téléchargements/EskaBoard sur le PC.</string>
 </resources>
