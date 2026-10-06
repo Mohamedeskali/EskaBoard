@@ -480,6 +480,7 @@
         const PONG_MS = 4000;
         const CHECK_MS = 5000;
         const PING_EVERY_MS = 25000;
+        const SEND_IMAGE_WAIT_MS = 12000;
 
         function parseKey() {
             const m = location.hash.match(/^#k=([A-Za-z0-9_-]+)$/);
@@ -660,7 +661,11 @@
         function checkAlive() {
             if (!ready || pongTimer) return;
             pingCtr = send({ type: 'ping' });
-            if (!pingCtr) return;
+            if (!pingCtr) {  // marked ready but the socket is gone
+                reconnectDelay = 1000;
+                connect();
+                return;
+            }
             pongTimer = setTimeout(() => {
                 pongTimer = null;
                 reconnectDelay = 1000;
@@ -669,9 +674,10 @@
         }
 
         // The page is shown again (app switch, screen on, back to the tab):
-        // reconnect now instead of waiting for a background-throttled timer
-        function resume() {
-            if (document.visibilityState === 'hidden' || !key) return;
+        // reconnect now instead of waiting for a background-throttled timer.
+        // force: also while hidden (the app's floating button needs the PC).
+        function resume(force) {
+            if ((force !== true && document.visibilityState === 'hidden') || !key) return;
             if (stopped) {
                 if (stopKey !== 'replaced') return;
                 // This phone is in use again: take over from the other one
@@ -693,13 +699,25 @@
         window.addEventListener('pageshow', resume);
         window.addEventListener('focus', resume);
         window.addEventListener('online', resume);
-        window.eskaboardResume = resume;  // called by the Android app on resume
+        window.eskaboardResume = () => resume();  // called by the Android app on resume
         notice.addEventListener('click', () => {
             if (stopKey === 'replaced') resume();
             else if (stopKey === 'rejected') location.reload();
         });
+        // In the Android app with the floating screenshot button on, the page
+        // stays connected behind other apps: keep checking it there too
+        function appKeepAlive() {
+            try {
+                return !!(window.EskaBoardApp && window.EskaBoardApp.keepAlive && window.EskaBoardApp.keepAlive());
+            } catch (e) {
+                return false;  // older app
+            }
+        }
         setInterval(() => {
-            if (document.visibilityState === 'visible') checkAlive();
+            if (document.visibilityState === 'visible') return checkAlive();
+            if (!appKeepAlive()) return;
+            if (ready) checkAlive();
+            else if (!stopped) resume(true);  // never takes over from another phone by itself
         }, PING_EVERY_MS);
 
         // Returns the message's ctr, or 0 if not connected (nothing sent)
@@ -886,16 +904,20 @@
         // The app's floating button took a screenshot of the phone: send it to
         // the PC's clipboard as one more encrypted message of this session
         // (same sid and counter rules as any other)
+        // The page is usually hidden then (the user is in another app), and the
+        // connection may have dropped: check it with a ping, reconnect if
+        // needed, and only then take the waiting image (the app gives up after 15 s)
         window.eskaboardSendImage = async function () {
             let ok = false;
             try {
-                // Just back from the background: give a reconnect a few seconds
-                if (!ready && window.eskaboardResume) window.eskaboardResume();
-                for (let i = 0; i < 40 && !ready && !stopped; i++) {
-                    await new Promise(r => setTimeout(r, 250));
+                if (ready) checkAlive();
+                else resume(true);
+                const deadline = Date.now() + SEND_IMAGE_WAIT_MS;  // timers may be throttled while hidden
+                while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
+                    await new Promise(r => setTimeout(r, 200));
                 }
                 const data = app.takeImage();  // base64 PNG, handed over once
-                if (data && ready && ws && ws.readyState === WebSocket.OPEN) {
+                if (data && ready && !pongTimer && ws && ws.readyState === WebSocket.OPEN) {
                     send({ type: 'image', format: 'png', data: data });
                     ok = true;
                 }

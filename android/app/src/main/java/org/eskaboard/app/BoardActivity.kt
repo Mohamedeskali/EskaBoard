@@ -3,6 +3,7 @@ package org.eskaboard.app
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -24,6 +25,8 @@ class BoardActivity : BaseActivity() {
     private var done = false
     private var loadFailed = false
     private var loadFailures = 0
+    private var shown = false      // between onResume and onPause
+    private var webPaused = false  // web.onPause() called
 
     // A screenshot from the floating button, waiting for the page to take it
     private val imageLock = Any()
@@ -103,6 +106,7 @@ class BoardActivity : BaseActivity() {
         }
         web.loadUrl(link.url)
         BoardBridge.attach(this)
+        applyKeepAlive()
     }
 
     private inner class PageInterface {
@@ -120,6 +124,10 @@ class BoardActivity : BaseActivity() {
         fun takeImage(): String? = synchronized(imageLock) {
             pendingImage.also { pendingImage = null }
         }
+
+        /** True while the floating button runs: the page keeps its connection checked in the background. */
+        @JavascriptInterface
+        fun keepAlive(): Boolean = ShotService.running
 
         @JavascriptInterface
         fun imageResult(ok: Boolean) {
@@ -143,7 +151,7 @@ class BoardActivity : BaseActivity() {
         web.evaluateJavascript("window.eskaboardSendImage ? (window.eskaboardSendImage(), 'started') : 'no'") {
             if (it != "\"started\"") finishImage(false) // page not loaded (yet)
         }
-        // The page waits up to 10 s for a reconnect, then answers
+        // The page checks the connection (reconnects if it dropped) for up to 12 s, then answers
         handler.postDelayed({ if (imageId == id) finishImage(false) }, IMAGE_TIMEOUT_MS)
     }
 
@@ -161,10 +169,37 @@ class BoardActivity : BaseActivity() {
         finish()
     }
 
+    /**
+     * While the floating button runs, the page must stay connected behind other
+     * apps so a screenshot can reach the PC: the WebView is not paused, and its
+     * renderer keeps its priority when not visible (otherwise Android freezes it
+     * after a few seconds and the PC drops the connection). The service keeps
+     * the app's process in the foreground. Without the service: the usual
+     * battery-friendly behaviour. Main thread; also called when the service
+     * starts or stops (BoardBridge).
+     */
+    fun applyKeepAlive() {
+        if (!::web.isInitialized) return
+        val on = ShotService.running
+        if (Build.VERSION.SDK_INT >= 26) {
+            web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on)
+        }
+        if (shown || on) {
+            if (webPaused) {
+                web.onResume()
+                webPaused = false
+            }
+        } else if (!webPaused) {
+            web.onPause()
+            webPaused = true
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        shown = true
         if (!::web.isInitialized) return
-        web.onResume()
+        applyKeepAlive()
         // Back from Settings: buttons and language, without reloading the page
         web.evaluateJavascript("window.eskaboardApplySettings && window.eskaboardApplySettings()", null)
         // Back from another app: the page checks its connection now
@@ -176,7 +211,8 @@ class BoardActivity : BaseActivity() {
     override fun onLanguageChanged() = Unit
 
     override fun onPause() {
-        if (::web.isInitialized) web.onPause()
+        shown = false
+        applyKeepAlive()
         super.onPause()
     }
 
