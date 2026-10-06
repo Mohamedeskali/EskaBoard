@@ -103,6 +103,7 @@
             font-size: 12px; font-weight: 700;
         }
         .icon-btn svg.i { width: 18px; height: 18px; }
+        .icon-btn[hidden], .tool.off { display: none; }
         .icon-btn:active { background: var(--raised-down); }
         /* Native picker over the language button: the phone's own list */
         .icon-btn select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; }
@@ -205,6 +206,7 @@
         <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
         <symbol id="i-live" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
         <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
         <symbol id="i-new" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
         <symbol id="i-enter" viewBox="0 0 24 24"><path d="m9 10-5 5 5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></symbol>
         <symbol id="i-erase" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
@@ -238,6 +240,10 @@
         <button type="button" class="icon-btn" id="new-btn" data-i18n-title="new">
             <svg class="i" aria-hidden="true"><use href="#i-new"/></svg>
         </button>
+        <!-- Android app only: its settings screen -->
+        <button type="button" class="icon-btn" id="settings-btn" data-i18n-title="settings" hidden>
+            <svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>
+        </button>
     </header>
 
     <div class="notice" id="notice" role="alert" hidden>
@@ -246,19 +252,19 @@
 
     <!-- Left to right whatever the language, like the PC's screens -->
     <div class="tools" id="quick-keys" dir="ltr">
-        <button type="button" class="tool" data-key="enter" data-i18n-title="enterTip">
+        <button type="button" class="tool" data-tool="enter" data-key="enter" data-i18n-title="enterTip">
             <svg class="i" aria-hidden="true"><use href="#i-enter"/></svg><span class="label" data-i18n="enter"></span>
         </button>
-        <button type="button" class="tool" data-key="escape" data-i18n-title="escTip">
+        <button type="button" class="tool" data-tool="esc" data-key="escape" data-i18n-title="escTip">
             <span class="keycap" aria-hidden="true">Esc</span><span class="label" data-i18n="esc"></span>
         </button>
-        <button type="button" class="tool erase" id="erase" data-i18n-title="eraseTip">
+        <button type="button" class="tool erase" id="erase" data-tool="erase" data-i18n-title="eraseTip">
             <svg class="i" aria-hidden="true"><use href="#i-erase"/></svg><span class="label" data-i18n="erase"></span>
         </button>
-        <button type="button" class="tool gap" data-key="ctrl+c" data-i18n-title="copyTip">
+        <button type="button" class="tool gap" data-tool="copy" data-key="ctrl+c" data-i18n-title="copyTip">
             <svg class="i" aria-hidden="true"><use href="#i-copy"/></svg><span class="label" data-i18n="copy"></span>
         </button>
-        <button type="button" class="tool" data-key="ctrl+v" data-i18n-title="pasteTip">
+        <button type="button" class="tool" data-tool="paste" data-key="ctrl+v" data-i18n-title="pasteTip">
             <svg class="i" aria-hidden="true"><use href="#i-paste"/></svg><span class="label" data-i18n="paste"></span>
         </button>
         <!-- Screenshot buttons, one per screen, added when the PC says how many -->
@@ -284,6 +290,7 @@
                 connected: 'متصل', disconnected: 'غير متصل', mode: 'الوضع',
                 send: 'إرسال', live: 'مباشر', language: 'اللغة',
                 new: 'جديد: يفرغ الخانة دون حذف شيء من الحاسوب',
+                settings: 'الإعدادات',
                 enter: 'إدخال', enterTip: 'Enter', esc: 'إلغاء', escTip: 'Esc',
                 erase: 'مسح', eraseTip: 'امسح من الحاسوب ما كتبه الهاتف',
                 copy: 'نسخ', copyTip: 'نسخ (Ctrl+C)', paste: 'لصق', pasteTip: 'لصق (Ctrl+V)',
@@ -302,6 +309,7 @@
                 connected: 'Connected', disconnected: 'Offline', mode: 'Mode',
                 send: 'Send', live: 'Live', language: 'Language',
                 new: 'New: empty the box without deleting anything on the PC',
+                settings: 'Settings',
                 enter: 'Enter', enterTip: 'Enter', esc: 'Escape', escTip: 'Esc',
                 erase: 'Erase', eraseTip: 'Delete on the PC what the phone typed',
                 copy: 'Copy', copyTip: 'Copy (Ctrl+C)', paste: 'Paste', pasteTip: 'Paste (Ctrl+V)',
@@ -320,6 +328,7 @@
                 connected: 'Connecté', disconnected: 'Hors ligne', mode: 'Mode',
                 send: 'Envoyer', live: 'Direct', language: 'Langue',
                 new: 'Nouveau : vider la zone sans rien effacer sur le PC',
+                settings: 'Paramètres',
                 enter: 'Entrée', enterTip: 'Entrée', esc: 'Échap', escTip: 'Échap',
                 erase: 'Effacer', eraseTip: 'Effacer sur le PC ce que le téléphone a tapé',
                 copy: 'Copier', copyTip: 'Copier (Ctrl+C)', paste: 'Coller', pasteTip: 'Coller (Ctrl+V)',
@@ -828,6 +837,7 @@
                 btn.type = 'button';
                 btn.className = 'tool shot' + (i === 0 ? ' gap' : '');
                 btn.dataset.screen = i;
+                btn.dataset.tool = 'shots';
                 btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-camera"/></svg><span class="label"></span>';
                 btn.querySelector('.label').textContent = many ? t('screen') : t('shot');
                 if (many) {
@@ -846,6 +856,59 @@
                 });
                 quickKeys.appendChild(btn);
             }
+            showTools();
+        }
+
+        // ---- Android app (window.EskaBoardApp, see android/…/BoardActivity.kt) ----
+        // Its settings: the page language and the tool buttons to hide
+        const app = window.EskaBoardApp || null;
+        let hiddenTools = [];
+
+        function showTools() {
+            quickKeys.querySelectorAll('[data-tool]').forEach(btn => {
+                btn.classList.toggle('off', hiddenTools.includes(btn.dataset.tool));
+            });
+        }
+
+        function applyAppSettings() {
+            if (!app) return;
+            let settings = {};
+            try { settings = JSON.parse(app.settings()) || {}; } catch (e) { return; }
+            hiddenTools = Array.isArray(settings.hidden) ? settings.hidden : [];
+            if (I18N[settings.lang] && settings.lang !== lang) {
+                lang = settings.lang;
+                applyLang();
+            }
+            showTools();
+        }
+        window.eskaboardApplySettings = applyAppSettings;
+
+        // The app's floating button took a screenshot of the phone: send it to
+        // the PC's clipboard as one more encrypted message of this session
+        // (same sid and counter rules as any other)
+        window.eskaboardSendImage = async function () {
+            let ok = false;
+            try {
+                // Just back from the background: give a reconnect a few seconds
+                if (!ready && window.eskaboardResume) window.eskaboardResume();
+                for (let i = 0; i < 40 && !ready && !stopped; i++) {
+                    await new Promise(r => setTimeout(r, 250));
+                }
+                const data = app.takeImage();  // base64 PNG, handed over once
+                if (data && ready && ws && ws.readyState === WebSocket.OPEN) {
+                    send({ type: 'image', format: 'png', data: data });
+                    ok = true;
+                }
+            } catch (e) {
+                ok = false;
+            }
+            try { app.imageResult(ok); } catch (e) { /* activity gone */ }
+        };
+
+        if (app) {
+            const settingsBtn = document.getElementById('settings-btn');
+            settingsBtn.hidden = false;
+            settingsBtn.addEventListener('click', () => app.openSettings());
         }
 
         // Adjust layout when keyboard opens/closes
@@ -857,6 +920,7 @@
 
         // Initialize
         applyLang();
+        applyAppSettings();
         updateMode();
         textarea.focus();
         if (key) {

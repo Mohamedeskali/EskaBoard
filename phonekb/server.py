@@ -1,5 +1,7 @@
 """aiohttp server with an encrypted WebSocket."""
 import asyncio
+import base64
+import binascii
 import secrets
 import sys
 import time
@@ -15,6 +17,9 @@ ICON = Path(__file__).resolve().parent.parent / "assets" / "eskaboard.png"
 MAX_BAD_TOKENS = 5    # bad tokens from one IP within BLOCK_SECONDS...
 BLOCK_SECONDS = 60    # ...block that IP for this long
 HELLO_TIMEOUT = 10
+# Room for a phone screenshot: the PNG is base64 in the JSON, which is
+# encrypted and base64 again (about 1.8x its size)
+MAX_FRAME = 32 << 20
 HEARTBEAT_SECONDS = 20  # WebSocket pings: a phone that stopped answering is dropped
 
 # Close codes the page understands; it stops reconnecting on these
@@ -120,7 +125,7 @@ class Server:
             return denied
         ip = request.remote or "?"
 
-        ws = web.WebSocketResponse(max_msg_size=1 << 20, heartbeat=self.heartbeat)
+        ws = web.WebSocketResponse(max_msg_size=MAX_FRAME, heartbeat=self.heartbeat)
         await ws.prepare(request)
         self._sockets.add(ws)
         try:
@@ -292,6 +297,11 @@ class DryRunInjector:
     def screenshot(self, index):
         print(f"[dry-run] screenshot of screen {index + 1}")
 
+    def phone_image(self, data):
+        from .screenshot import phone_png
+        image, _png = phone_png(data)
+        print(f"[dry-run] phone screenshot {image.width}x{image.height} ({len(data)} bytes)")
+
 
 IDLE_RESTORE_SECONDS = 1.0  # typing pause after which the clipboard is restored
 
@@ -335,6 +345,10 @@ def inject_worker(injector, queue):
                     screen = data.get("screen")
                     if type(screen) is int:
                         injector.screenshot(screen)
+                elif msg_type == "image":
+                    # A screenshot from the phone, for the PC's clipboard
+                    if data.get("format") == "png" and hasattr(injector, "phone_image"):
+                        injector.phone_image(decode_image(data.get("data")))
                 elif msg_type == "live":
                     delete_count = data.get("delete", 0)
                     insert = data.get("insert", "")
@@ -359,6 +373,17 @@ def inject_worker(injector, queue):
     t = threading.Thread(target=run, daemon=True)
     t.start()
     return t
+
+
+def decode_image(text):
+    """The base64 image of an "image" message, as bytes (BadImage if invalid)."""
+    from .screenshot import BadImage
+    if not isinstance(text, str):
+        raise BadImage("no image data")
+    try:
+        return base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError):
+        raise BadImage("image is not base64") from None
 
 
 async def bridge_queue(async_queue, sync_queue):

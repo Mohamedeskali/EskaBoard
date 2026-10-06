@@ -8,7 +8,6 @@ import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.edit
@@ -16,7 +15,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
 /** Start screen: scan the QR code, paste the link, or reopen the last PC. */
-class MainActivity : ComponentActivity() {
+class MainActivity : BaseActivity() {
     private lateinit var linkInput: EditText
     private lateinit var lastButton: Button
     private lateinit var message: TextView
@@ -50,6 +49,9 @@ class MainActivity : ComponentActivity() {
         lastButton = findViewById(R.id.last)
         message = findViewById(R.id.message)
 
+        findViewById<View>(R.id.settings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
         findViewById<Button>(R.id.scan).setOnClickListener { startScan() }
         findViewById<Button>(R.id.connect).setOnClickListener { connectTyped() }
         linkInput.setOnEditorActionListener { _, actionId, _ ->

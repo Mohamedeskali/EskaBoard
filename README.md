@@ -111,6 +111,22 @@ The link holds the pairing token and the encryption key: anyone who has it and i
 
 Typing an IP address alone is not enough: the token and the key change every time EskaBoard starts, and the PC rejects the phone without them.
 
+### Settings
+
+The gear (on the start screen, and at the top of the board) opens the app's settings:
+- **Language**: automatic (the phone's), العربية, Français or English. The app and the board page change at once.
+- **Buttons on the board**: show or hide each button of the tool bar (Enter, Esc, erase, copy, paste, the PC screenshot buttons).
+- **Floating screenshot button** (off by default): see below.
+
+### Floating screenshot button
+
+Turn it on in Settings. Android asks two things: to **display over other apps**, and to **capture the screen** (choose the entire screen, not a single app). A notification stays while the button is shown.
+
+- A round button floats over every app; drag it anywhere.
+- Tap it: the phone's screen is captured (without the button) and copied to the **phone's clipboard**, so you can paste it in any app.
+- If the board is open and connected, the screenshot also goes to the **PC**: on its clipboard (Ctrl+V) and in `Pictures/Screenshots` (`Screenshot … phone.png`). It travels as one more encrypted message of the page's session.
+- Turn it off in Settings, or with **Stop** in the notification. Android may also end the screen capture (for example from its "stop sharing" button); turn it on again in Settings.
+
 ### Building the app
 
 GitHub Actions builds the APK (`.github/workflows/android.yml`) on every change in `android/` and on each published release, where it attaches `EskaBoard.apk` to the release. The APK is also kept as a download on the workflow run. To build it on a PC instead, with JDK 17 and the Android SDK: `cd android && ./gradlew assembleDebug`.
@@ -188,11 +204,14 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
     MainActivity.kt   start screen: scan, paste or share a link, reconnect to the last PC
     BoardActivity.kt  the phone page, full screen; stays on the PC's own address
     BoardLink.kt      checks a link is an EskaBoard one (http://IP:PORT/?t=…#k=…)
+    SettingsActivity.kt, AppSettings.kt  language, board buttons, floating button
+    ShotService.kt    the floating screenshot button (foreground service, screen capture)
 ```
 
 ## How it works
 
 - Each run creates a random token (`?t=`) and a 32-byte key (`#k=`) in the QR link. The key never goes over the network. Every WebSocket message is encrypted (NaCl secretbox) with a session id and a counter, so plaintext, a wrong key and replayed messages are rejected. 5 bad tokens from one IP block it for 60 s.
+- A phone screenshot (Android app) is an `image` message like any other: encrypted, with the session id and counter. The PC accepts only PNG (up to 16 MB and 40 megapixels), decodes it and encodes it again before it saves it and puts it on the clipboard.
 - The phone stays paired while EskaBoard runs. When it comes back from another app or the lock screen, the page checks its connection (an encrypted ping) and reconnects by itself with the same link: each connection gets a new session id from the PC and its counter starts again, so nothing sent on an earlier connection is accepted. The PC also pings the phone every 20 s and drops one that stopped answering. The link expires, with a new QR on the PC, after 30 minutes with no phone connected (`--expire`).
 - Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts what you had copied (text or image) back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
 - Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used (only screenshots are put on it). Special keys are sent as key presses.

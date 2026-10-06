@@ -6,6 +6,13 @@ from pathlib import Path
 
 from PIL import Image
 
+MAX_PHONE_PNG = 16 << 20           # bytes: a phone screenshot is a few MB
+MAX_PHONE_PIXELS = 40_000_000      # 40 MP: well above any phone screen
+
+
+class BadImage(ValueError):
+    """The phone sent something that is not a usable PNG."""
+
 
 def pictures_dir():
     """The user's Pictures folder (it may be renamed, translated or moved)."""
@@ -23,12 +30,12 @@ def pictures_dir():
     return Path.home() / "Pictures"
 
 
-def save(png, screen):
+def save(png, label):
     """Write png (bytes) to Pictures/Screenshots, where the system puts its own,
-    and return the path."""
+    and return the path. label: "screen 1", "phone"..."""
     folder = pictures_dir() / "Screenshots"
     folder.mkdir(parents=True, exist_ok=True)
-    stem = f"Screenshot {datetime.now():%Y-%m-%d %H-%M-%S} screen {screen}"
+    stem = f"Screenshot {datetime.now():%Y-%m-%d %H-%M-%S} {label}"
     path = folder / f"{stem}.png"
     n = 2
     while path.exists():
@@ -55,6 +62,35 @@ def crop(png, rects, index):
     box = (round((x - left) * fx), round((y - top) * fy),
            round((x + w - left) * fx), round((y + h - top) * fy))
     return to_png(image.crop(box))
+
+
+def phone_png(data):
+    """Check a screenshot from the phone and return (image, png).
+
+    Only PNG is accepted, with size limits, and the image is decoded and
+    encoded again: what reaches the clipboard and the disk is a clean PNG made
+    here, never the phone's bytes as they came.
+    """
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        raise BadImage("no image data")
+    if len(data) > MAX_PHONE_PNG:
+        raise BadImage(f"image too large ({len(data)} bytes)")
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise BadImage("not a PNG")
+    try:
+        image = Image.open(io.BytesIO(data))
+        if image.format != "PNG":
+            raise BadImage("not a PNG")
+        if image.width * image.height > MAX_PHONE_PIXELS:
+            raise BadImage(f"image too large ({image.width}x{image.height})")
+        image.load()
+    except BadImage:
+        raise
+    except Exception as e:  # truncated or corrupt
+        raise BadImage(f"unreadable PNG: {e}") from None
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGBA")
+    return image, to_png(image)
 
 
 def to_png(image):

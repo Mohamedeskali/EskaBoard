@@ -177,9 +177,16 @@ class Injector:
         else:
             image = ImageGrab.grab(all_screens=True)
         png = screenshot.to_png(image)
-        path = screenshot.save(png, index + 1)
+        path = screenshot.save(png, f"screen {index + 1}")
         set_clipboard_image(screenshot.to_dib(image), png)
         print(f"Screenshot of screen {index + 1}: {path}")
+
+    def phone_image(self, data):
+        """A screenshot taken on the phone: save it and put it on the clipboard."""
+        image, png = screenshot.phone_png(data)
+        path = screenshot.save(png, "phone")
+        set_clipboard_image(screenshot.to_dib(image), png)
+        print(f"Phone screenshot: {path}")
 
 
 def monitors():
