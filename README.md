@@ -73,6 +73,7 @@ Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan 
 
 - Ubuntu shows a window; Windows shows a page in your browser. Both have the QR code, the connection status, **QR جديد** (new QR: the phone using the old one is disconnected), **نسخ الرابط** (copy link: the QR's link, for the [Android app](#android-app)) and **إيقاف** (stop).
 - On Windows you can close the page: EskaBoard keeps running. Open EskaBoard from the Start menu to see the page again.
+- Switching to another app on the phone, or turning its screen off, doesn't need a new scan: the phone reconnects by itself when you come back. After an hour without the phone, the QR code is replaced and the phone must scan the new one (`--idle-minutes` changes this; `0` keeps the QR until **QR جديد**).
 
 On the phone:
 - **🌐**: the page's language: العربية, English or Français. It follows the phone's language until you pick one.

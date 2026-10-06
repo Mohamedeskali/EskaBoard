@@ -8,7 +8,7 @@ import qrcode
 
 from . import __version__
 from .netinfo import get_lan_ip
-from .app import Service
+from .app import Service, IDLE_EXPIRE_MINUTES
 
 
 def print_qr(url):
@@ -39,6 +39,9 @@ def main():
                         help="Log received messages instead of typing them (no portal)")
     parser.add_argument("--gui", action="store_true",
                         help="Open a window with the QR code (a page in the browser on Windows)")
+    parser.add_argument("--idle-minutes", type=int, default=IDLE_EXPIRE_MINUTES,
+                        help="Replace the QR after this many minutes without the phone "
+                             f"(default: {IDLE_EXPIRE_MINUTES}, 0: never)")
     parser.add_argument("--version", action="version", version=f"EskaBoard {__version__}")
     args = parser.parse_args()
 
@@ -57,7 +60,11 @@ def main():
         from .gui import run_gui
         return run_gui(host, args.port, args.dry_run)
 
-    service = Service(host, args.port, args.dry_run)
+    def on_event(kind, detail=None):
+        if kind == "new_qr":
+            print_qr(detail)
+
+    service = Service(host, args.port, args.dry_run, on_event, args.idle_minutes)
     print_qr(service.url)
 
     try:

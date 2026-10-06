@@ -15,6 +15,11 @@ else:
 from .server import Server, DryRunInjector, inject_worker, bridge_queue
 from .secure import new_key, key_to_b64url
 
+# Without a phone for this long, the QR (token and key) is replaced, so a
+# lost or borrowed phone can't come back. Until then a phone that went away
+# (another app, screen off) reconnects by itself without a new scan.
+IDLE_EXPIRE_MINUTES = 60
+
 APP_ID = "org.phonekb.PhoneKB"  # GTK application id; StartupWMClass in install.sh must match
 
 
@@ -23,8 +28,10 @@ class Service:
     listening, portal_starting, ready, portal_failed, connected, disconnected, new_qr.
     """
 
-    def __init__(self, host, port, dry_run=False, on_event=None):
+    def __init__(self, host, port, dry_run=False, on_event=None,
+                 idle_minutes=IDLE_EXPIRE_MINUTES):
         self.host = host
+        self.idle_seconds = idle_minutes * 60  # 0: never expire
         self.port = port
         self.dry_run = dry_run
         self.on_event = on_event or (lambda kind, detail=None: None)
@@ -46,6 +53,14 @@ class Service:
         print("New QR: old token and key revoked")
         self.on_event("new_qr", self.url)
         return self.url
+
+    async def expire_when_idle(self):
+        """Rotate the QR once the paired phone has been away too long."""
+        while True:
+            await asyncio.sleep(min(30, self.idle_seconds))
+            if self.server.paired and self.server.idle_for() >= self.idle_seconds:
+                print(f"No phone for {self.idle_seconds // 60} min: QR expired")
+                await self.rotate()
 
     async def run(self, handle_sigterm=True):
         """Serve until cancelled."""
@@ -76,6 +91,9 @@ class Service:
 
         injector = None
         bridge_task = None
+        expire_task = None
+        if self.idle_seconds > 0:
+            expire_task = asyncio.create_task(self.expire_when_idle())
         try:
             # Start portal session in background
             try:
@@ -112,4 +130,6 @@ class Service:
             close_portal()
             if bridge_task:
                 bridge_task.cancel()
+            if expire_task:
+                expire_task.cancel()
             await runner.cleanup()

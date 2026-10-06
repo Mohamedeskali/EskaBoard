@@ -15,6 +15,9 @@ ICON = Path(__file__).resolve().parent.parent / "assets" / "eskaboard.png"
 MAX_BAD_TOKENS = 5    # bad tokens from one IP within BLOCK_SECONDS...
 BLOCK_SECONDS = 60    # ...block that IP for this long
 HELLO_TIMEOUT = 10
+# WebSocket ping interval: a phone that went away (app in the background,
+# screen off, Wi-Fi lost) is noticed within about 1.5x this
+HEARTBEAT_SECONDS = 20
 
 # Close codes the page understands; it stops reconnecting on these
 CLOSE_BAD_FRAME = 4001  # plaintext, wrong key, replay or bad hello
@@ -36,6 +39,12 @@ class Server:
         self._blocked = {}  # ip -> monotonic unblock time
         self._tasks = set()
         self._sockets = set()  # every open WebSocket, closed on shutdown
+        self.last_seen = time.monotonic()  # last connect, message or disconnect
+        self.paired = False  # a phone used the current QR since it was made
+
+    def idle_for(self):
+        """Seconds since the phone was last connected (0 while it is)."""
+        return 0 if self.ws else time.monotonic() - self.last_seen
 
     def _event(self, kind, text, detail=None):
         print(text)
@@ -46,6 +55,8 @@ class Server:
         """Switch to a new token/key and drop the phone using the old ones."""
         self.token = token
         self.box = Box(key)
+        self.paired = False
+        self.last_seen = time.monotonic()
         if self.ws:
             await self.ws.close(code=CLOSE_NEW_QR, message=b"new QR")
 
@@ -106,7 +117,7 @@ class Server:
             return denied
         ip = request.remote or "?"
 
-        ws = web.WebSocketResponse(max_msg_size=1 << 20)
+        ws = web.WebSocketResponse(max_msg_size=1 << 20, heartbeat=HEARTBEAT_SECONDS)
         await ws.prepare(request)
         self._sockets.add(ws)
         try:
@@ -148,6 +159,8 @@ class Server:
         if self.ws:
             await self.ws.close(code=CLOSE_REPLACED, message=b"replaced")
         self.ws = ws
+        self.paired = True
+        self.last_seen = time.monotonic()
         last_ctr = 1
         last_seq = 0
         self._event("connected", f"Phone connected ({ip})", ip)
@@ -170,6 +183,16 @@ class Server:
                         await self._reject(ws, ip, f"replayed or missing ctr={ctr!r} (last={last_ctr})")
                         break
                     last_ctr = ctr
+                    self.last_seen = time.monotonic()
+
+                    # The page checks the link is alive when it comes back
+                    # to the foreground: answer, nothing to type
+                    if data.get("type") == "ping":
+                        try:
+                            await ws.send_str(box.seal({"type": "pong"}))
+                        except ConnectionResetError:
+                            break
+                        continue
 
                     # For live messages, check sequence order
                     if data.get("type") == "live":
@@ -188,6 +211,7 @@ class Server:
         finally:
             if self.ws is ws:
                 self.ws = None
+                self.last_seen = time.monotonic()
                 self._event("disconnected", "Phone disconnected")
 
         return ws

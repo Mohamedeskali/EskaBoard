@@ -294,7 +294,7 @@
                 noKey: 'لا يوجد مفتاح تشفير في الرابط — امسح رمز QR',
                 badKey: 'مفتاح التشفير غير صحيح — امسح رمز QR من جديد',
                 rejected: 'رفض الحاسوب الرسائل — أعد تحميل الصفحة',
-                replaced: 'اتصل هاتف آخر — أعد تحميل الصفحة للعودة',
+                replaced: 'اتصل هاتف آخر — اضغط هنا للعودة',
                 newQr: 'تم إنشاء رمز QR جديد — امسحه',
                 expired: 'انتهت صلاحية هذا الرمز — امسح رمز QR الجديد',
             },
@@ -312,7 +312,7 @@
                 noKey: 'No encryption key in the link — scan the QR code',
                 badKey: 'Wrong encryption key — scan the QR code again',
                 rejected: 'The PC rejected the messages — reload the page',
-                replaced: 'Another phone connected — reload the page to take over',
+                replaced: 'Another phone connected — tap here to take over',
                 newQr: 'A new QR code was created — scan it',
                 expired: 'This QR code has expired — scan the new one',
             },
@@ -330,7 +330,7 @@
                 noKey: 'Pas de clé de chiffrement dans le lien — scannez le code QR',
                 badKey: 'Clé de chiffrement incorrecte — scannez à nouveau le code QR',
                 rejected: 'Le PC a refusé les messages — rechargez la page',
-                replaced: "Un autre téléphone s'est connecté — rechargez la page pour reprendre",
+                replaced: "Un autre téléphone s'est connecté — touchez ici pour reprendre",
                 newQr: 'Un nouveau code QR a été créé — scannez-le',
                 expired: 'Ce code QR a expiré — scannez le nouveau',
             },
@@ -374,6 +374,10 @@
         const noticeText = document.getElementById('notice-text');
         let ws = null;
         let reconnectDelay = 1000;
+        let retryTimer = null;
+        let pongTimer = null;  // pending ping: no pong in time means a dead link
+        const PING_EVERY = 25000;
+        const PONG_TIMEOUT = 4000;
 
         // Mode: 'send' or 'live'
         let mode = load('mode') === 'live' ? 'live' : 'send';
@@ -516,6 +520,10 @@
 
         function connect() {
             if (stopped) return;
+            clearTimeout(retryTimer);
+            retryTimer = null;
+            clearTimeout(pongTimer);
+            pongTimer = null;
             ready = false;
             const token = new URLSearchParams(location.search).get('t');
             const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -526,6 +534,10 @@
                 const msg = unseal(ev.data);
                 if (ready) {
                     if (msg && msg.type === 'screens') showScreens(msg.count);
+                    if (msg && msg.type === 'pong') {
+                        clearTimeout(pongTimer);
+                        pongTimer = null;
+                    }
                     return;
                 }
                 if (!msg || msg.type !== 'challenge' || typeof msg.sid !== 'string') {
@@ -539,11 +551,11 @@
                 send({ type: 'hello' });
                 updateStatusText(true);
                 reconnectDelay = 1000;
-                // Clear on reconnect
-                textarea.value = '';
-                mirror = '';
-                sent = '';
+                // A reconnect is a new session on the PC (new sid, seq from 0),
+                // but the PC still has the text: keep the box and the mirror,
+                // and send what was typed while the link was down
                 seq = 0;
+                if (mode === 'live') flushLive();
             };
 
             sock.onclose = (ev) => {
@@ -554,7 +566,16 @@
                 if (ev.code === 4003) return stop('newQr');
                 if (stopped) return;
                 updateStatusText(false);
-                retry();
+                retry(sock);
+            };
+
+            // Silent close of a dead link: the onclose above reconnects
+            sock.dead = () => {
+                if (ws !== sock) return;
+                const onclose = sock.onclose;
+                sock.onclose = null;
+                try { sock.close(); } catch (e) { /* already closing */ }
+                onclose({ code: 1006 });
             };
 
             sock.onerror = () => {
@@ -564,27 +585,74 @@
 
         // A rejected token looks like a network error to WebSocket, so ask
         // for the page once: 403 means this QR is no longer valid.
-        async function retry() {
+        async function retry(sock) {
             try {
                 const r = await fetch(location.pathname + location.search, { method: 'HEAD', cache: 'no-store' });
+                if (ws !== sock) return;  // wake() reconnected meanwhile
                 if (r.status === 403) return stop('expired');
                 if (r.status === 429) {
-                    setTimeout(connect, 60000);
+                    retryTimer = setTimeout(connect, 60000);
                     return;
                 }
             } catch (e) {
                 // PC not reachable: keep retrying
             }
-            setTimeout(connect, reconnectDelay);
+            if (stopped || ws !== sock) return;
+            retryTimer = setTimeout(connect, reconnectDelay);
             reconnectDelay = Math.min(reconnectDelay * 1.5, 10000);
         }
 
+        // Returns false when the link is down: nothing went out
         function send(data) {
             if (ready && ws && ws.readyState === WebSocket.OPEN) {
                 ctr++;
                 ws.send(seal(Object.assign({}, data, { sid: sid, ctr: ctr })));
+                return true;
+            }
+            return false;
+        }
+
+        // Is the link still alive? A phone back from another app may hold a
+        // socket the PC already dropped, and nothing tells the page.
+        function ping() {
+            if (pongTimer || !send({ type: 'ping' })) return;
+            const sock = ws;
+            pongTimer = setTimeout(() => {
+                pongTimer = null;
+                sock.dead();
+            }, PONG_TIMEOUT);
+        }
+
+        // Back on the page (other app, screen on, network back): reconnect
+        // at once instead of waiting for the next retry, or check the link
+        function wake() {
+            if (stopped || document.hidden) return;
+            if (ready && ws && ws.readyState === WebSocket.OPEN) {
+                ping();
+            } else if (!ws || ws.readyState !== WebSocket.CONNECTING) {
+                reconnectDelay = 1000;
+                connect();
             }
         }
+        window.eskaWake = wake;  // the Android app calls it on resume
+
+        document.addEventListener('visibilitychange', wake);
+        window.addEventListener('pageshow', wake);
+        window.addEventListener('online', wake);
+        window.addEventListener('focus', wake);
+        setInterval(() => {
+            if (!document.hidden && ready) ping();
+        }, PING_EVERY);
+
+        // "Another phone connected": tap the notice to take over again
+        notice.addEventListener('click', () => {
+            if (noticeKey !== 'replaced') return;
+            stopped = false;
+            noticeKey = null;
+            notice.hidden = true;
+            reconnectDelay = 1000;
+            connect();
+        });
 
         function flushLive() {
             if (debounceTimer) {
@@ -611,10 +679,12 @@
             const insert = currentChars.slice(p).join('');
 
             if (deleteCount > 0 || insert.length > 0) {
-                seq++;
                 lastLiveSend = Date.now();
-                send({ type: 'live', seq: seq, delete: deleteCount, insert: insert });
-                mirror = current;
+                // Offline: keep the mirror, the diff goes out on reconnect
+                if (send({ type: 'live', seq: seq + 1, delete: deleteCount, insert: insert })) {
+                    seq++;
+                    mirror = current;
+                }
             }
         }
 
@@ -622,8 +692,8 @@
         sendBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         sendBtn.addEventListener('click', () => {
             const text = textarea.value;
-            if (text.length > 0) {
-                send({ type: 'text', text: text });
+            // Offline: the text stays in the box, to send again
+            if (text.length > 0 && send({ type: 'text', text: text })) {
                 textarea.value = '';
                 sent += text;
                 if (autoEnter.checked) {
