@@ -6,6 +6,11 @@
     <!-- navigator.vibrate() on the phone page -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Floating screenshot button (off until turned on in Settings) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- The PC serves the page over plain HTTP on the LAN (any IP), and the page
          encrypts every message itself, so cleartext traffic is allowed.
@@ -43,6 +48,26 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".ShotService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- Screenshots go on the clipboard as content:// URIs -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.shots"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!-- The scanner follows the phone's orientation (the library defaults to landscape) -->
         <activity

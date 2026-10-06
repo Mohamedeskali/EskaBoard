@@ -15,4 +15,34 @@
     <string name="expired">This code has expired: EskaBoard was restarted or a new QR was made. Scan the new QR code.</string>
     <string name="blocked">Too many attempts with an old code. Wait a minute, then scan the new QR code.</string>
     <string name="unreachable">Could not reach the PC at %1$s. Check that EskaBoard is running and that the phone is on the same Wi-Fi.</string>
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="language">Language</string>
+    <string name="lang_auto">Automatic (phone language)</string>
+    <string name="lang_ar" translatable="false">العربية</string>
+    <string name="lang_fr" translatable="false">Français</string>
+    <string name="lang_en" translatable="false">English</string>
+    <string name="board_buttons">Buttons on the board</string>
+    <string name="tool_enter">Enter ↵</string>
+    <string name="tool_esc">Esc</string>
+    <string name="tool_erase">Erase</string>
+    <string name="tool_copy">Copy (Ctrl+C)</string>
+    <string name="tool_paste">Paste (Ctrl+V)</string>
+    <string name="tool_shots">PC screenshots</string>
+    <string name="floating_title">Floating screenshot button</string>
+    <string name="floating_switch">Show the floating button</string>
+    <string name="floating_explain">A round button over all apps; drag it anywhere. A tap takes a screenshot of the phone: it goes to the phone\'s clipboard and, when EskaBoard is connected, to the PC\'s clipboard (and Pictures/Screenshots). Android asks to display over other apps and to capture the screen: choose the entire screen.</string>
+    <string name="overlay_explain">Allow EskaBoard to display over other apps, then come back.</string>
+    <string name="overlay_denied">The floating button needs “Display over other apps”.</string>
+    <string name="capture_denied">The floating button needs the screen capture permission.</string>
+    <string name="shot_button">Take a screenshot</string>
+    <string name="shot_channel">Floating screenshot button</string>
+    <string name="shot_notification_title">Floating screenshot button</string>
+    <string name="shot_notification_text">Tap the button to take a screenshot. Tap here for settings.</string>
+    <string name="shot_stop">Stop</string>
+    <string name="shot_clip_label">Screenshot</string>
+    <string name="shot_copied_sent">Screenshot copied on the phone and the PC</string>
+    <string name="shot_copied_only">Screenshot copied on the phone (PC not connected)</string>
+    <string name="shot_copied_too_big">Screenshot copied on the phone (too large for the PC)</string>
+    <string name="shot_failed">The screenshot failed</string>
 </resources>

@@ -606,7 +606,18 @@ class Injector:
         rects = gnome_shot.monitors()
         if len(rects) > 1 and 0 <= index < len(rects):
             png = screenshot.crop(png, rects, index)
-        path = screenshot.save(png, index + 1)
+        path = screenshot.save(png, f"screen {index + 1}")
+        self._copy_image(png)
+        print(f"Screenshot of screen {index + 1}: {path}")
+
+    def phone_image(self, data):
+        """A screenshot taken on the phone: save it and put it on the clipboard."""
+        _image, png = screenshot.phone_png(data)
+        path = screenshot.save(png, "phone")
+        self._copy_image(png)
+        print(f"Phone screenshot: {path}")
+
+    def _copy_image(self, png):
         # Typing later saves and restores the image like any clipboard
         self._dirty = False
         self._saved = None
@@ -614,4 +625,3 @@ class Injector:
             self.portal.set_clipboard({IMAGE_MIME: png})
         else:
             subprocess.run(["wl-copy", "--type", IMAGE_MIME], input=png, timeout=3)
-        print(f"Screenshot of screen {index + 1}: {path}")

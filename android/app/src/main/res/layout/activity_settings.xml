@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings"
+            android:textColor="@color/fg"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            style="@style/SettingsSection"
+            android:text="@string/language" />
+
+        <RadioGroup
+            android:id="@+id/language"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/field"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <RadioButton
+                android:id="@+id/lang_auto"
+                style="@style/SettingsOption"
+                android:text="@string/lang_auto" />
+
+            <RadioButton
+                android:id="@+id/lang_ar"
+                style="@style/SettingsOption"
+                android:text="@string/lang_ar" />
+
+            <RadioButton
+                android:id="@+id/lang_fr"
+                style="@style/SettingsOption"
+                android:text="@string/lang_fr" />
+
+            <RadioButton
+                android:id="@+id/lang_en"
+                style="@style/SettingsOption"
+                android:text="@string/lang_en" />
+        </RadioGroup>
+
+        <TextView
+            style="@style/SettingsSection"
+            android:text="@string/board_buttons" />
+
+        <LinearLayout
+            android:id="@+id/tools"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/field"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp" />
+
+        <TextView
+            style="@style/SettingsSection"
+            android:text="@string/floating_title" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/field"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp">
+
+            <Switch
+                android:id="@+id/floating"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/floating_switch"
+                android:textColor="@color/fg"
+                android:textSize="16sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:lineSpacingMultiplier="1.2"
+                android:text="@string/floating_explain"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
