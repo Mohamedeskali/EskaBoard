@@ -11,7 +11,7 @@
     <string name="empty_link">الصق الرابط أولًا، أو امسح رمز QR.</string>
     <string name="not_a_code">هذا ليس رمز QR الخاص بـ EskaBoard.</string>
     <string name="not_a_link">هذا ليس رابط EskaBoard. يبدو هكذا: http://192.168.1.20:8765/?t=…#k=…</string>
-    <string name="expired">انتهت صلاحية هذا الرمز: أُعيد تشغيل EskaBoard أو أُنشئ رمز جديد. امسح رمز QR الجديد.</string>
+    <string name="expired">انتهت صلاحية هذا الرمز: أُعيد تشغيل EskaBoard، أو أُنشئ رمز جديد، أو لم يتصل أي هاتف لمدة 30 دقيقة. امسح رمز QR الجديد.</string>
     <string name="blocked">محاولات كثيرة برمز قديم. انتظر دقيقة ثم امسح رمز QR الجديد.</string>
     <string name="unreachable">تعذر الوصول إلى الحاسوب %1$s. تحقق من أن EskaBoard يعمل وأن الهاتف على نفس شبكة Wi-Fi.</string>
 </resources>

@@ -17,7 +17,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, GLib, Gtk
 import qrcode
 
-from .app import APP_ID, Service
+from .app import APP_ID, IDLE_EXPIRE_MINUTES, Service
 
 STOP_GRACE_SECONDS = 8
 COPY_LABEL = "نسخ الرابط"
@@ -33,11 +33,13 @@ def qr_texture(url):
 
 
 class PhoneKBApp(Gtk.Application):
-    def __init__(self, host, port, dry_run, application_id=APP_ID):
+    def __init__(self, host, port, dry_run, application_id=APP_ID,
+                 expire_minutes=IDLE_EXPIRE_MINUTES):
         super().__init__(application_id=application_id)
         self.host = host
         self.port = port
         self.dry_run = dry_run
+        self.expire_minutes = expire_minutes
         self.window = None
         self.link = None
         self.copied_timer = 0
@@ -57,7 +59,8 @@ class PhoneKBApp(Gtk.Application):
         Gtk.Widget.set_default_direction(Gtk.TextDirection.RTL)
         self.build_window()
 
-        self.service = Service(self.host, self.port, self.dry_run, on_event=self.on_service_event)
+        self.service = Service(self.host, self.port, self.dry_run, on_event=self.on_service_event,
+                               expire_minutes=self.expire_minutes)
         self.show_qr(self.service.url)
         self.thread = threading.Thread(target=self.run_service, name="phonekb-service", daemon=True)
         self.thread.start()
@@ -230,8 +233,8 @@ class PhoneKBApp(Gtk.Application):
         return GLib.SOURCE_CONTINUE
 
 
-def run_gui(host, port, dry_run):
-    app = PhoneKBApp(host, port, dry_run)
+def run_gui(host, port, dry_run, expire_minutes=IDLE_EXPIRE_MINUTES):
+    app = PhoneKBApp(host, port, dry_run, expire_minutes=expire_minutes)
     code = app.run([sys.argv[0]])
     if app.thread and app.thread.is_alive():
         app.thread.join(2)

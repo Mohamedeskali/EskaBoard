@@ -105,7 +105,7 @@ Open the app and either:
 - **Scan the QR code**: the app's own scanner (it asks for the camera permission once), or
 - **Paste the link**: click **نسخ الرابط** on the PC, get the link to the phone (for example in a chat with yourself), and paste it in the app. You can also **Share** the link from a chat app to EskaBoard.
 
-The app remembers the last PC: **Reconnect** opens it again while EskaBoard keeps running there. If EskaBoard was restarted or **QR جديد** was pressed, the app says the code expired: scan the new one.
+The app remembers the last PC: **Reconnect** opens it again while EskaBoard keeps running there. If EskaBoard was restarted, **QR جديد** was pressed or no phone was connected for 30 minutes, the app says the code expired: scan the new one.
 
 The link holds the pairing token and the encryption key: anyone who has it and is on the same Wi-Fi can type on your PC until you press **QR جديد** or restart EskaBoard. Don't post it anywhere public. Windows' clipboard history (Win+V) keeps what you copy.
 
@@ -151,7 +151,13 @@ venv\Scripts\python -m phonekb       # Windows: QR code in the terminal
 venv\Scripts\python -m phonekb --gui # Windows: the page in the browser
 ```
 
-Options: `--host IP`, `--port N` (default 8765), `--dry-run` (log messages, never type), `--gui`.
+Options: `--host IP`, `--port N` (default 8765), `--dry-run` (log messages, never type), `--expire MIN` (the link expires after MIN minutes with no phone connected; default 30, 0: never), `--gui`.
+
+Tests (a Python client that connects, disconnects and reconnects with the same link):
+
+```bash
+venv/bin/python3 -m unittest discover -s tests
+```
 
 ## Project layout
 
@@ -167,6 +173,7 @@ phonekb/
   webgui.py        Windows: the page in the browser (127.0.0.1 only)
   server.py        web server, encrypted WebSocket, token/IP checks, typing worker
   secure.py        NaCl secretbox helpers (key, encrypt, decrypt)
+tests/             reconnect, replay and expiry tests (unittest)
   injector.py      Ubuntu: GNOME Remote Desktop portal: permission, keys, clipboard paste
   injector_win.py  Windows: SendInput (Unicode characters and virtual keys), screenshots
   gnome_shot.py    Ubuntu: monitor layout (Mutter) and the Screenshot portal
@@ -186,6 +193,7 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
 ## How it works
 
 - Each run creates a random token (`?t=`) and a 32-byte key (`#k=`) in the QR link. The key never goes over the network. Every WebSocket message is encrypted (NaCl secretbox) with a session id and a counter, so plaintext, a wrong key and replayed messages are rejected. 5 bad tokens from one IP block it for 60 s.
+- The phone stays paired while EskaBoard runs. When it comes back from another app or the lock screen, the page checks its connection (an encrypted ping) and reconnects by itself with the same link: each connection gets a new session id from the PC and its counter starts again, so nothing sent on an earlier connection is accepted. The PC also pings the phone every 20 s and drops one that stopped answering. The link expires, with a new QR on the PC, after 30 minutes with no phone connected (`--expire`).
 - Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts what you had copied (text or image) back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
 - Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used (only screenshots are put on it). Special keys are sent as key presses.
 - Windows: the page with the QR code is served on `127.0.0.1` only, on a random port, and needs a random secret that is in the address the browser opens. It cannot be reached from the network, because the QR contains the key.
@@ -194,7 +202,7 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
 ## Limitations
 
 - Keep the target window focused while typing.
-- One phone at a time.
+- One phone at a time. A page that another phone (or another tab) replaced takes over again when it is shown again, or when its notice is tapped.
 - Ubuntu: GNOME on Wayland only. Terminals paste with Ctrl+Shift+V, so typing into a terminal may not work, and in a terminal **نسخ** (Ctrl+C) stops the running command instead of copying. Only text and PNG images on the clipboard are restored after typing.
 - Screenshots on Ubuntu are taken through GNOME's Screenshot portal; GNOME may ask for permission the first time.
 - Windows: nothing can be typed into programs running as administrator (Windows blocks it), or on the lock screen and UAC prompts. A few programs that read raw keys (some games, remote-desktop tools) ignore Unicode typing.
@@ -206,7 +214,7 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
 - No permission dialog: it may be behind other windows (Alt+Tab), and it gives up after 5 minutes.
 - To revoke the permission, delete `~/.config/phonekb` (GNOME Settings has no page for it). Uninstalling does this for you.
 - Text doesn't appear: check the target window has focus and look at the terminal output.
-- Phone says the QR expired: the program was restarted or "QR جديد" was pressed; scan the new QR.
+- Phone says the QR expired: the program was restarted, "QR جديد" was pressed, or no phone was connected for 30 minutes; scan the new QR.
 
 ### Windows
 

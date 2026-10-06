@@ -16,6 +16,7 @@ from .server import Server, DryRunInjector, inject_worker, bridge_queue
 from .secure import new_key, key_to_b64url
 
 APP_ID = "org.phonekb.PhoneKB"  # GTK application id; StartupWMClass in install.sh must match
+IDLE_EXPIRE_MINUTES = 30  # the QR link expires after this long with no phone connected
 
 
 class Service:
@@ -23,10 +24,12 @@ class Service:
     listening, portal_starting, ready, portal_failed, connected, disconnected, new_qr.
     """
 
-    def __init__(self, host, port, dry_run=False, on_event=None):
+    def __init__(self, host, port, dry_run=False, on_event=None,
+                 expire_minutes=IDLE_EXPIRE_MINUTES):
         self.host = host
         self.port = port
         self.dry_run = dry_run
+        self.expire_seconds = expire_minutes * 60  # 0: the link never expires
         self.on_event = on_event or (lambda kind, detail=None: None)
         self.token = secrets.token_urlsafe(16)
         self.key = new_key()
@@ -46,6 +49,20 @@ class Service:
         print("New QR: old token and key revoked")
         self.on_event("new_qr", self.url)
         return self.url
+
+    async def expire_when_idle(self):
+        """New QR once no phone has been connected for expire_seconds.
+
+        A phone that drops (app switch, screen off) reconnects with the same
+        link until then; afterwards the old link is refused and the phone
+        must scan the new QR.
+        """
+        check = min(30.0, self.expire_seconds / 4)
+        while True:
+            await asyncio.sleep(check)
+            if self.server.idle_seconds() >= self.expire_seconds:
+                print(f"No phone for {self.expire_seconds // 60} min: the link expired")
+                await self.rotate()
 
     async def run(self, handle_sigterm=True):
         """Serve until cancelled."""
@@ -76,6 +93,7 @@ class Service:
 
         injector = None
         bridge_task = None
+        expire_task = asyncio.create_task(self.expire_when_idle()) if self.expire_seconds > 0 else None
         try:
             # Start portal session in background
             try:
@@ -110,6 +128,8 @@ class Service:
         finally:
             # Closes the portal session and unblocks a pending permission wait
             close_portal()
+            if expire_task:
+                expire_task.cancel()
             if bridge_task:
                 bridge_task.cancel()
             await runner.cleanup()

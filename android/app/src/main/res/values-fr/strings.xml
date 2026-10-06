@@ -11,7 +11,7 @@
     <string name="empty_link">Collez d\'abord le lien, ou scannez le code QR.</string>
     <string name="not_a_code">Ce n\'est pas un code QR EskaBoard.</string>
     <string name="not_a_link">Ce n\'est pas un lien EskaBoard. Il ressemble à http://192.168.1.20:8765/?t=…#k=…</string>
-    <string name="expired">Ce code a expiré : EskaBoard a redémarré ou un nouveau QR a été créé. Scannez le nouveau code QR.</string>
+    <string name="expired">Ce code a expiré : EskaBoard a redémarré, un nouveau QR a été créé, ou aucun téléphone n\'était connecté depuis 30 minutes. Scannez le nouveau code QR.</string>
     <string name="blocked">Trop de tentatives avec un ancien code. Attendez une minute, puis scannez le nouveau code QR.</string>
     <string name="unreachable">Impossible de joindre le PC %1$s. Vérifiez qu\'EskaBoard est lancé et que le téléphone est sur le même Wi-Fi.</string>
 </resources>

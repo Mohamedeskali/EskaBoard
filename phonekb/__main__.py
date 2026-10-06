@@ -8,7 +8,7 @@ import qrcode
 
 from . import __version__
 from .netinfo import get_lan_ip
-from .app import Service
+from .app import IDLE_EXPIRE_MINUTES, Service
 
 
 def print_qr(url):
@@ -37,6 +37,9 @@ def main():
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log received messages instead of typing them (no portal)")
+    parser.add_argument("--expire", type=int, default=IDLE_EXPIRE_MINUTES, metavar="MIN",
+                        help=f"The QR link expires after MIN minutes with no phone connected "
+                             f"(default: {IDLE_EXPIRE_MINUTES}, 0: never)")
     parser.add_argument("--gui", action="store_true",
                         help="Open a window with the QR code (a page in the browser on Windows)")
     parser.add_argument("--version", action="version", version=f"EskaBoard {__version__}")
@@ -52,12 +55,16 @@ def main():
 
     if args.gui and sys.platform == "win32":
         from .webgui import run_webgui
-        return run_webgui(host, args.port, args.dry_run)
+        return run_webgui(host, args.port, args.dry_run, expire_minutes=args.expire)
     if args.gui:
         from .gui import run_gui
-        return run_gui(host, args.port, args.dry_run)
+        return run_gui(host, args.port, args.dry_run, expire_minutes=args.expire)
 
-    service = Service(host, args.port, args.dry_run)
+    def on_event(kind, detail=None):
+        if kind == "new_qr":  # the link expired: the old QR no longer works
+            print_qr(detail)
+
+    service = Service(host, args.port, args.dry_run, on_event=on_event, expire_minutes=args.expire)
     print_qr(service.url)
 
     try:
