@@ -205,8 +205,9 @@ class BoardActivity : BaseActivity() {
     }
 
     /**
-     * While a floating button (screenshot or Enter) runs, the page must stay
-     * connected behind other apps so its taps reach the PC: the WebView is not
+     * While a floating button (screenshot or Enter) runs, the page stays
+     * connected behind other apps, ready when the user comes back (the buttons
+     * themselves use their own connection, PcSender): the WebView is not
      * paused, and its renderer keeps its priority when not visible (otherwise
      * Android freezes it after a few seconds and the PC drops the connection).
      * The button's service keeps the app's process in the foreground. Without

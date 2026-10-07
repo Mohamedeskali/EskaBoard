@@ -139,8 +139,8 @@ class MainActivity : BaseActivity() {
         message.visibility = View.GONE
     }
 
-    private companion object {
-        const val KEY_LAST = "last_link"
+    companion object {
+        private const val KEY_LAST = "last_link"
         private const val PREFS = "eskaboard"
 
         /** The PC last opened in the app (the floating buttons send there too). */
