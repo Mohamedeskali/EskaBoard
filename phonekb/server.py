@@ -173,16 +173,21 @@ class Server:
             await ws.close(code=CLOSE_NEW_QR, message=b"new QR")
             return ws
 
-        # Authenticated: replace the existing connection
-        if self.ws:
-            await self.ws.close(code=CLOSE_REPLACED, message=b"replaced")
-        self.ws = ws
+        # A short side connection from the app's floating buttons: it sends a
+        # few messages (same sid/ctr rules) and closes, without pushing the
+        # board page out or counting as the connected phone
+        oneshot = hello.get("oneshot") is True
+        if not oneshot:
+            # Authenticated: replace the existing connection
+            if self.ws:
+                await self.ws.close(code=CLOSE_REPLACED, message=b"replaced")
+            self.ws = ws
+            self._event("connected", f"Phone connected ({ip})", ip)
+            self._notify_connected(ip)
+            await self.send_screens()
         last_ctr = 1
         last_seq = 0
         files = FileReceiver(self.files_dir)
-        self._event("connected", f"Phone connected ({ip})", ip)
-        self._notify_connected(ip)
-        await self.send_screens()
 
         try:
             async for msg in ws:
@@ -235,6 +240,8 @@ class Server:
                     print(f"WS error: {ws.exception()}")
         finally:
             files.abort()  # a file cut short is not kept
+            if oneshot:
+                self._last_active = time.monotonic()  # the phone is in use
             if self.ws is ws:
                 self.ws = None
                 self._last_active = time.monotonic()

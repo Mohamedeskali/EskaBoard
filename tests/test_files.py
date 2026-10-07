@@ -91,11 +91,11 @@ class FilesTest(unittest.IsolatedAsyncioTestCase):
         await self.session.close()
         await self.runner.cleanup()
 
-    async def connect(self):
+    async def connect(self, **hello):
         ws = await self.session.ws_connect(self.url, max_msg_size=0)
         challenge = self.box.open((await ws.receive(timeout=2)).data)
         self.sid, self.ctr = challenge["sid"], 0
-        await self.send(ws, type="hello")
+        await self.send(ws, type="hello", **hello)
         return ws
 
     async def send(self, ws, **data):
@@ -215,6 +215,26 @@ class FilesTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.event(), ("image", (20, 10)))
         await self.nothing_happens()
         await ws.close()
+
+    async def test_oneshot_does_not_push_the_board_out(self):
+        board = await self.connect()
+        board_session = (self.sid, self.ctr)
+        await asyncio.sleep(0.2)
+        self.assertIsNotNone(self.server.ws)
+        main = self.server.ws
+        # The floating Enter button's side connection: hello, one key, close
+        side = await self.connect(oneshot=True)
+        await self.send(side, type="key", key="enter")
+        self.assertEqual(await self.event(), ("key", "enter"))
+        await side.close()
+        await asyncio.sleep(0.2)
+        self.assertIs(self.server.ws, main)
+        self.assertFalse(board.closed)
+        # The board's session goes on with its own sid and counter
+        self.sid, self.ctr = board_session
+        await self.send(board, type="key", key="enter")
+        self.assertEqual(await self.event(), ("key", "enter"))
+        await board.close()
 
     async def test_phone_cannot_send_internal_messages(self):
         ws = await self.connect()

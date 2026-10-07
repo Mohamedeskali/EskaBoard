@@ -95,6 +95,8 @@
         .segmented button.active { background: var(--accent); color: var(--on-accent); }
         /* Offline the status needs its text: make room by dropping the mode icons */
         .status:not(.online) ~ .segmented svg.i { display: none; }
+        /* Narrow phones with the app's floating-button icons too */
+        @media (max-width: 400px) { .with-float .segmented svg.i { display: none; } }
 
         .icon-btn {
             position: relative; display: flex; align-items: center; justify-content: center; gap: 3px;
@@ -103,7 +105,9 @@
             font-size: 12px; font-weight: 700;
         }
         .icon-btn svg.i { width: 18px; height: 18px; }
-        .icon-btn[hidden], .tool.off { display: none; }
+        .icon-btn[hidden], .icon-btn.off, .tool.off { display: none; }
+        /* The app's floating buttons, when on */
+        .icon-btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
         .icon-btn:active { background: var(--raised-down); }
         /* Native picker over the language button: the phone's own list */
         .icon-btn select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; }
@@ -230,7 +234,7 @@
                 <svg class="i" aria-hidden="true"><use href="#i-live"/></svg><span data-i18n="live"></span>
             </button>
         </div>
-        <label class="icon-btn" data-i18n-title="language">
+        <label class="icon-btn" id="lang-btn" data-i18n-title="language">
             <svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>
             <select id="lang" data-i18n-label="language">
                 <option value="ar">العربية</option>
@@ -241,7 +245,15 @@
         <button type="button" class="icon-btn" id="new-btn" data-i18n-title="new">
             <svg class="i" aria-hidden="true"><use href="#i-new"/></svg>
         </button>
-        <!-- Android app only: its settings screen -->
+        <!-- Android app only: its floating buttons (on/off) and its settings screen -->
+        <button type="button" class="icon-btn" id="float-shot" data-tool="float_shot" data-float="shot"
+                data-i18n-title="floatShot" aria-pressed="false" hidden>
+            <svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="float-enter" data-tool="float_enter" data-float="enter"
+                data-i18n-title="floatEnter" aria-pressed="false" hidden>
+            <svg class="i" aria-hidden="true"><use href="#i-enter"/></svg>
+        </button>
         <button type="button" class="icon-btn" id="settings-btn" data-i18n-title="settings" hidden>
             <svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>
         </button>
@@ -296,6 +308,7 @@
                 send: 'إرسال', live: 'مباشر', language: 'اللغة',
                 new: 'جديد: يفرغ الخانة دون حذف شيء من الحاسوب',
                 settings: 'الإعدادات',
+                floatShot: 'زر اللقطة العائم', floatEnter: 'زر الإدخال العائم',
                 enter: 'إدخال', enterTip: 'Enter', esc: 'إلغاء', escTip: 'Esc',
                 erase: 'مسح', eraseTip: 'امسح من الحاسوب ما كتبه الهاتف',
                 copy: 'نسخ', copyTip: 'نسخ (Ctrl+C)', paste: 'لصق', pasteTip: 'لصق (Ctrl+V)',
@@ -316,6 +329,7 @@
                 send: 'Send', live: 'Live', language: 'Language',
                 new: 'New: empty the box without deleting anything on the PC',
                 settings: 'Settings',
+                floatShot: 'Floating screenshot button', floatEnter: 'Floating Enter button',
                 enter: 'Enter', enterTip: 'Enter', esc: 'Escape', escTip: 'Esc',
                 erase: 'Erase', eraseTip: 'Delete on the PC what the phone typed',
                 copy: 'Copy', copyTip: 'Copy (Ctrl+C)', paste: 'Paste', pasteTip: 'Paste (Ctrl+V)',
@@ -336,6 +350,7 @@
                 send: 'Envoyer', live: 'Direct', language: 'Langue',
                 new: 'Nouveau : vider la zone sans rien effacer sur le PC',
                 settings: 'Paramètres',
+                floatShot: 'Bouton de capture flottant', floatEnter: 'Bouton Entrée flottant',
                 enter: 'Entrée', enterTip: 'Entrée', esc: 'Échap', escTip: 'Échap',
                 erase: 'Effacer', eraseTip: 'Effacer sur le PC ce que le téléphone a tapé',
                 copy: 'Copier', copyTip: 'Copier (Ctrl+C)', paste: 'Coller', pasteTip: 'Coller (Ctrl+V)',
@@ -488,7 +503,7 @@
         const PONG_MS = 4000;
         const CHECK_MS = 5000;
         const PING_EVERY_MS = 25000;
-        const SEND_IMAGE_WAIT_MS = 12000;
+        const CONNECT_WAIT_MS = 12000;
 
         function parseKey() {
             const m = location.hash.match(/^#k=([A-Za-z0-9_-]+)$/);
@@ -893,7 +908,7 @@
         let autoPaste = false;  // a photo that reaches the PC's clipboard is pasted there too
 
         function showTools() {
-            quickKeys.querySelectorAll('[data-tool]').forEach(btn => {
+            document.querySelectorAll('[data-tool]').forEach(btn => {
                 btn.classList.toggle('off', hiddenTools.includes(btn.dataset.tool));
             });
         }
@@ -904,6 +919,7 @@
             try { settings = JSON.parse(app.settings()) || {}; } catch (e) { return; }
             hiddenTools = Array.isArray(settings.hidden) ? settings.hidden : [];
             autoPaste = settings.autoPaste === true;
+            showFloating();
             if (I18N[settings.lang] && settings.lang !== lang) {
                 lang = settings.lang;
                 applyLang();
@@ -912,60 +928,27 @@
         }
         window.eskaboardApplySettings = applyAppSettings;
 
-        // The app's floating button took a screenshot of the phone: send it to
-        // the PC's clipboard as one more encrypted message of this session
-        // (same sid and counter rules as any other)
-        // The page is usually hidden then (the user is in another app), and the
-        // connection may have dropped: check it with a ping, reconnect if
-        // needed, and only then take the waiting image (the app gives up after 15 s)
         // True once a ping was answered on the current connection (reconnects
-        // first if it dropped); false after SEND_IMAGE_WAIT_MS
+        // first if it dropped, also while hidden); false after CONNECT_WAIT_MS
         async function connectedForApp() {
             if (ready) checkAlive();
             else resume(true);
-            const deadline = Date.now() + SEND_IMAGE_WAIT_MS;  // timers may be throttled while hidden
+            const deadline = Date.now() + CONNECT_WAIT_MS;  // timers may be throttled while hidden
             while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
                 await new Promise(r => setTimeout(r, 50));
             }
             return ready && !pongTimer && !!ws && ws.readyState === WebSocket.OPEN;
         }
 
-        window.eskaboardSendImage = async function () {
-            let ok = false;
-            try {
-                const connected = await connectedForApp();
-                const data = app.takeImage();  // base64 PNG, handed over once
-                if (data && connected) {
-                    send({ type: 'image', format: 'png', data: data, paste: autoPaste });
-                    ok = true;
-                }
-            } catch (e) {
-                ok = false;
+        // The app's floating Enter button pressed Enter on the PC through its
+        // own connection: like the page's Enter key, the text so far is the PC's
+        window.eskaboardKeySent = function () {
+            if (mode === 'live') {
+                textarea.value = '';
+                mirror = '';
+            } else {
+                sent = '';
             }
-            try { app.imageResult(ok); } catch (e) { /* activity gone */ }
-        };
-
-        // The app's floating Enter button: same as the page's own Enter button
-        const APP_KEYS = ['enter'];
-        window.eskaboardKey = async function (key, id) {
-            let ok = false;
-            try {
-                if (APP_KEYS.includes(key) && await connectedForApp()) {
-                    if (mode === 'live') {
-                        flushLive();
-                        ok = send({ type: 'key', key: key }) > 0;
-                        // The text is the PC's now: clear mirror after sending
-                        textarea.value = '';
-                        mirror = '';
-                    } else {
-                        ok = send({ type: 'key', key: key }) > 0;
-                        sent = '';
-                    }
-                }
-            } catch (e) {
-                ok = false;
-            }
-            try { app.keyResult(id, ok); } catch (e) { /* activity gone */ }
         };
 
         // ---- Photos and files to the PC (phonekb/files.py) ----
@@ -1053,6 +1036,31 @@
             filesInput.value = '';  // the same file can be picked again
             sendFiles(list);
         });
+
+        // The app's floating buttons: an icon each in the top bar, lit while on
+        const floatBtns = document.querySelectorAll('[data-float]');
+
+        function showFloating() {
+            if (!app || !app.floatingState) return;
+            let state = {};
+            try { state = JSON.parse(app.floatingState()) || {}; } catch (e) { return; }
+            floatBtns.forEach(btn => {
+                const on = state[btn.dataset.float] === true;
+                btn.classList.toggle('on', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        if (app && app.floatingState) {
+            floatBtns.forEach(btn => {
+                btn.hidden = false;
+                // The app asks for its permissions, then calls eskaboardApplySettings
+                btn.addEventListener('click', () => app.toggleFloating(btn.dataset.float));
+            });
+            // Room for them: the app's settings have the language
+            document.getElementById('lang-btn').hidden = true;
+            document.body.classList.add('with-float');
+        }
 
         if (app) {
             const settingsBtn = document.getElementById('settings-btn');

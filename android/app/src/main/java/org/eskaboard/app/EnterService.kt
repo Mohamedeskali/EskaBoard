@@ -18,9 +18,9 @@ import androidx.core.content.ContextCompat
 
 /**
  * The floating Enter button: a round button over every app that presses Enter
- * on the PC through the board page's encrypted session (like the page's own
- * Enter button). Runs as a foreground service with a notification, which also
- * keeps the board connected behind other apps (BoardActivity.applyKeepAlive).
+ * on the PC through the app's own encrypted connection (PcSender). Runs as a
+ * foreground service with a notification, which also keeps the board
+ * connected behind other apps (BoardActivity.applyKeepAlive).
  */
 class EnterService : Service() {
     private var button: FloatingButton? = null
@@ -72,10 +72,14 @@ class EnterService : Service() {
         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         pending++
         view.alpha = 0.6f // waiting for the PC
-        BoardBridge.sendKey("enter") { sent ->
+        PcSender.send(this, listOf(mapOf("type" to "key", "key" to "enter"))) { sent ->
             pending--
             if (pending == 0) button?.view?.alpha = 1f
-            if (!sent) Toast.makeText(this, R.string.enter_not_sent, Toast.LENGTH_SHORT).show()
+            if (sent) {
+                BoardBridge.keySent() // live mode: the page's text is the PC's now
+            } else {
+                Toast.makeText(this, R.string.enter_not_sent, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -110,6 +114,12 @@ class EnterService : Service() {
         @Volatile
         var running = false
             private set
+
+        /** Stops the service; [running] is false at once (Settings and the board show it). */
+        fun stop(context: Context) {
+            running = false
+            context.stopService(Intent(context, EnterService::class.java))
+        }
 
         /** False if Android refused to start it. */
         fun start(context: Context): Boolean {

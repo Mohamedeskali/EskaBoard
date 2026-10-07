@@ -24,9 +24,6 @@
     <string name="tool_copy">Copier (Ctrl+C)</string>
     <string name="tool_paste">Coller (Ctrl+V)</string>
     <string name="tool_shots">Captures d\'écran du PC</string>
-    <string name="floating_title">Bouton de capture flottant</string>
-    <string name="floating_switch">Afficher le bouton flottant</string>
-    <string name="floating_explain">Un bouton rond au-dessus de toutes les applis ; déplacez-le où vous voulez. Un appui fait une capture d\'écran du téléphone : elle va dans le presse-papiers du téléphone et, si EskaBoard est connecté, dans celui du PC (et dans Images/Screenshots). Android demande l\'affichage par-dessus les autres applis et la capture d\'écran : choisissez l\'écran entier.</string>
     <string name="overlay_explain">Autorisez EskaBoard à s\'afficher par-dessus les autres applis, puis revenez.</string>
     <string name="overlay_denied">Le bouton flottant a besoin de « Affichage par-dessus les autres applis ».</string>
     <string name="capture_denied">Le bouton flottant a besoin de l\'autorisation de capture d\'écran.</string>
@@ -41,8 +38,6 @@
     <string name="shot_copied_too_big">Capture copiée sur le téléphone (trop grande pour le PC)</string>
     <string name="shot_failed">La capture d\'écran a échoué</string>
     <!-- Floating Enter button -->
-    <string name="enter_title">Bouton Entrée flottant</string>
-    <string name="enter_explain">Un second bouton rond au-dessus de toutes les applis ; déplacez-le où vous voulez. Un appui appuie sur Entrée sur le PC quand EskaBoard est connecté. Android demande l\'affichage par-dessus les autres applis.</string>
     <string name="enter_button">Appuyer sur Entrée sur le PC</string>
     <string name="enter_channel">Bouton Entrée flottant</string>
     <string name="enter_notification_text">Appuyez sur le bouton pour Entrée sur le PC. Appuyez ici pour les paramètres.</string>
@@ -52,5 +47,14 @@
     <string name="tool_files">Envoyer photos et fichiers</string>
     <string name="pc_title">Sur le PC</string>
     <string name="auto_paste_switch">Coller automatiquement</string>
-    <string name="auto_paste_explain">Une capture du bouton flottant, ou une seule photo envoyée avec « Fichiers », est collée tout de suite là où est le curseur du PC (Ctrl+V). Les fichiers sont enregistrés dans Téléchargements/EskaBoard sur le PC.</string>
+    <!-- Settings rows -->
+    <string name="floating_section">Boutons flottants</string>
+    <string name="shot_row_title">Capture d\'écran</string>
+    <string name="shot_row_subtitle">Capturez n\'importe quelle appli et envoyez-la au PC</string>
+    <string name="enter_row_title">Entrée</string>
+    <string name="enter_row_subtitle">Appuyez sur Entrée sur le PC depuis n\'importe quelle appli</string>
+    <string name="floating_hint">Des boutons ronds au-dessus de toutes les applis ; déplacez-les où vous voulez. Ils marchent même quand EskaBoard est en arrière-plan. Android demande l\'affichage par-dessus les autres applis (et, pour les captures, la capture d\'écran : choisissez l\'écran entier). Vous pouvez aussi les activer depuis la barre du haut du clavier.</string>
+    <string name="auto_paste_subtitle">Une capture ou une seule photo est collée là où est le curseur du PC. Les fichiers vont dans Téléchargements/EskaBoard.</string>
+    <string name="tool_float_shot">Capture flottante (barre du haut)</string>
+    <string name="tool_float_enter">Entrée flottante (barre du haut)</string>
 </resources>

@@ -39,8 +39,8 @@ import java.util.Locale
 /**
  * The floating screenshot button: a round button over every app. A tap takes
  * a screenshot of the phone (without the button), puts it on the phone's
- * clipboard and, when the board page is connected, sends it to the PC's
- * clipboard through the page's encrypted session.
+ * clipboard and sends it to the PC's clipboard through the app's own
+ * encrypted connection (PcSender), whatever state the board page is in.
  *
  * Runs as a foreground service (type mediaProjection) with a notification.
  * The screen-capture consent is given once when the service starts; Android
@@ -270,7 +270,8 @@ class ShotService : Service() {
             done(getString(R.string.shot_copied_too_big))
             return
         }
-        BoardBridge.sendImage(base64) { sent ->
+        val image = mapOf("type" to "image", "format" to "png", "data" to base64, "paste" to AppSettings.autoPaste(this))
+        PcSender.send(this, listOf(image)) { sent ->
             done(getString(if (sent) R.string.shot_copied_sent else R.string.shot_copied_only))
         }
     }
@@ -321,6 +322,12 @@ class ShotService : Service() {
         @Volatile
         var running = false
             private set
+
+        /** Stops the service; [running] is false at once (Settings and the board show it). */
+        fun stop(context: Context) {
+            running = false
+            context.stopService(Intent(context, ShotService::class.java))
+        }
 
         /** Starts the service with the screen-capture consent; false if Android refused. */
         fun start(context: Context, resultCode: Int, data: Intent): Boolean {

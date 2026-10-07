@@ -11,7 +11,7 @@ object AppSettings {
     val LANGUAGES = listOf("", "ar", "fr", "en")
 
     /** The page's tool buttons that can be hidden (data-tool in phonekb/static/index.html). */
-    val TOOLS = listOf("enter", "esc", "erase", "copy", "paste", "files", "shots")
+    val TOOLS = listOf("enter", "esc", "erase", "copy", "paste", "files", "shots", "float_shot", "float_enter")
 
     private const val FILE = "settings"
     private const val KEY_LANGUAGE = "language"

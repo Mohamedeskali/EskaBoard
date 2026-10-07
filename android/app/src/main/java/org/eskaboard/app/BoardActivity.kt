@@ -33,15 +33,8 @@ class BoardActivity : BaseActivity() {
     private var shown = false      // between onResume and onPause
     private var webPaused = false  // web.onPause() called
 
-    // A screenshot from the floating button, waiting for the page to take it
-    private val imageLock = Any()
-    private var pendingImage: String? = null
-    private var pendingDone: ((Boolean) -> Unit)? = null
-    private var imageId = 0
-
-    // Keys from the floating Enter button, waiting for the page's answer
-    private val pendingKeys = mutableMapOf<Int, (Boolean) -> Unit>()
-    private var keyId = 0
+    // The top bar's floating-button icons turn them on and off from here
+    private val floating = FloatingSetup(this) { floatingChanged() }
 
     // The page's "Files" button: Android's picker, then the chosen files back to the page
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -163,25 +156,25 @@ class BoardActivity : BaseActivity() {
             handler.post { startActivity(Intent(this@BoardActivity, SettingsActivity::class.java)) }
         }
 
-        /** The waiting screenshot (base64 PNG), handed over once. */
+        /** {"shot": bool, "enter": bool}: which floating buttons run (the top bar's icons). */
         @JavascriptInterface
-        fun takeImage(): String? = synchronized(imageLock) {
-            pendingImage.also { pendingImage = null }
+        fun floatingState(): String =
+            """{"shot":${ShotService.running},"enter":${EnterService.running}}"""
+
+        /** "shot" or "enter": turn that floating button on (asking for permissions) or off. */
+        @JavascriptInterface
+        fun toggleFloating(kind: String) {
+            val which = when (kind) {
+                "shot" -> FloatingSetup.Kind.SHOT
+                "enter" -> FloatingSetup.Kind.ENTER
+                else -> return
+            }
+            handler.post { floating.toggle(which) }
         }
 
         /** True while a floating button runs: the page keeps its connection checked in the background. */
         @JavascriptInterface
         fun keepAlive(): Boolean = BoardBridge.keepAlive
-
-        @JavascriptInterface
-        fun keyResult(id: Int, ok: Boolean) {
-            handler.post { finishKey(id, ok) }
-        }
-
-        @JavascriptInterface
-        fun imageResult(ok: Boolean) {
-            handler.post { finishImage(ok) }
-        }
 
         // The link no longer works (EskaBoard restarted, "QR جديد", or 30 min
         // with no phone): back to the start screen to scan
@@ -191,42 +184,9 @@ class BoardActivity : BaseActivity() {
         }
     }
 
-    /** Main thread: ask the page to send [base64Png] to the PC. */
-    fun sendImage(base64Png: String, done: (Boolean) -> Unit) {
-        finishImage(false) // an older one still waiting: give up on it
-        synchronized(imageLock) { pendingImage = base64Png }
-        pendingDone = done
-        val id = ++imageId
-        web.evaluateJavascript("window.eskaboardSendImage ? (window.eskaboardSendImage(), 'started') : 'no'") {
-            if (it != "\"started\"") finishImage(false) // page not loaded (yet)
-        }
-        // The page checks the connection (reconnects if it dropped) for up to 12 s, then answers
-        handler.postDelayed({ if (imageId == id) finishImage(false) }, IMAGE_TIMEOUT_MS)
-    }
-
-    /** Main thread: ask the page to press [key] on the PC (same as its own key buttons). */
-    fun sendKey(key: String, done: (Boolean) -> Unit) {
-        if (key !in KEYS) {
-            done(false)
-            return
-        }
-        val id = ++keyId
-        pendingKeys[id] = done
-        web.evaluateJavascript("window.eskaboardKey ? (window.eskaboardKey('$key', $id), 'started') : 'no'") {
-            if (it != "\"started\"") finishKey(id, false) // page not loaded (yet), or an older PC page
-        }
-        handler.postDelayed({ finishKey(id, false) }, IMAGE_TIMEOUT_MS)
-    }
-
-    private fun finishKey(id: Int, ok: Boolean) {
-        pendingKeys.remove(id)?.invoke(ok)
-    }
-
-    private fun finishImage(ok: Boolean) {
-        val done = pendingDone ?: return
-        pendingDone = null
-        synchronized(imageLock) { pendingImage = null }
-        done(ok)
+    /** Main thread: a floating button pressed a key on the PC; in live mode the page starts a new text. */
+    fun keySent() {
+        if (::web.isInitialized) web.evaluateJavascript("window.eskaboardKeySent && window.eskaboardKeySent()", null)
     }
 
     private fun finishWith(result: Int) {
@@ -234,6 +194,14 @@ class BoardActivity : BaseActivity() {
         done = true
         setResult(result)
         finish()
+    }
+
+    /** Main thread: a floating button was turned on or off. */
+    fun floatingChanged() {
+        applyKeepAlive()
+        if (::web.isInitialized) {
+            web.evaluateJavascript("window.eskaboardApplySettings && window.eskaboardApplySettings()", null)
+        }
     }
 
     /**
@@ -286,9 +254,6 @@ class BoardActivity : BaseActivity() {
     override fun onDestroy() {
         BoardBridge.detach(this)
         handler.removeCallbacksAndMessages(null)
-        finishImage(false)
-        pendingKeys.values.toList().forEach { it(false) }
-        pendingKeys.clear()
         if (::web.isInitialized) {
             web.stopLoading()
             web.destroy()
@@ -301,11 +266,7 @@ class BoardActivity : BaseActivity() {
         const val RESULT_EXPIRED = RESULT_FIRST_USER
         const val RESULT_BLOCKED = RESULT_FIRST_USER + 1
         const val RESULT_UNREACHABLE = RESULT_FIRST_USER + 2
-        private const val IMAGE_TIMEOUT_MS = 15_000L
         private const val LOAD_RETRIES = 10
         private const val LOAD_RETRY_MS = 2000L
-
-        /** Keys a floating button may press (the page checks them too). */
-        private val KEYS = setOf("enter")
     }
 }

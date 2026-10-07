@@ -2,11 +2,7 @@ package org.eskaboard.app
 
 import java.lang.ref.WeakReference
 
-/**
- * Lets the floating screenshot button reach the open board page, whose
- * encrypted session is the only way to the PC (one phone at a time: a second
- * connection would push the page out).
- */
+/** Lets the floating buttons reach the open board page. */
 object BoardBridge {
     private var board = WeakReference<BoardActivity>(null)
 
@@ -24,26 +20,11 @@ object BoardBridge {
 
     /** Main thread: a floating button was turned on or off. */
     fun floatingChanged() {
-        board.get()?.applyKeepAlive()
+        board.get()?.floatingChanged()
     }
 
-    /** Main thread. [done] gets true once the page sent [key] (see BoardActivity.KEYS) to the PC. */
-    fun sendKey(key: String, done: (Boolean) -> Unit) {
-        val activity = board.get()
-        if (activity == null || activity.isFinishing || activity.isDestroyed) {
-            done(false)
-            return
-        }
-        activity.sendKey(key, done)
-    }
-
-    /** Main thread. [done] gets true once the page sent the image to the PC. */
-    fun sendImage(base64Png: String, done: (Boolean) -> Unit) {
-        val activity = board.get()
-        if (activity == null || activity.isFinishing || activity.isDestroyed) {
-            done(false)
-            return
-        }
-        activity.sendImage(base64Png, done)
+    /** Main thread: a floating button pressed a key on the PC (the page resets its live text). */
+    fun keySent() {
+        board.get()?.keySent()
     }
 }

@@ -24,6 +24,9 @@ class AppSettingsTest {
     @Test
     fun toolNamesMatchThePage() {
         // data-tool values in phonekb/static/index.html
-        assertEquals(listOf("enter", "esc", "erase", "copy", "paste", "files", "shots"), AppSettings.TOOLS)
+        assertEquals(
+            listOf("enter", "esc", "erase", "copy", "paste", "files", "shots", "float_shot", "float_enter"),
+            AppSettings.TOOLS,
+        )
     }
 }
