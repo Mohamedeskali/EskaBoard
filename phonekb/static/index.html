@@ -808,15 +808,33 @@
         textarea.addEventListener('compositionend', () => {
             composing = false;
             if (mode === 'live') {
-                flushLive();
+                if (editingInside()) scheduleInside();
+                else flushLive();
             }
         });
+
+        // Editing inside the text (not at its end) makes the PC delete
+        // everything after the change and type it again: in a long text that
+        // takes a while, so wait for a pause instead of doing it every letter.
+        const INSIDE_PAUSE = 800;
+        function editingInside() {
+            return textarea.selectionEnd < textarea.value.length;
+        }
+        function scheduleInside() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                sendLiveDiff();
+            }, INSIDE_PAUSE);
+        }
 
         // Throttled input for live mode: the first letter after a pause goes
         // out at once, then at most one update per gap while typing (longer
         // while the keyboard is composing or dictating, to limit rewrites).
         textarea.addEventListener('input', () => {
-            if (mode !== 'live' || debounceTimer) return;
+            if (mode !== 'live') return;
+            if (editingInside()) return scheduleInside();
+            if (debounceTimer) return;
             const gap = composing ? 120 : 60;
             const wait = Math.max(0, lastLiveSend + gap - Date.now());
             debounceTimer = setTimeout(() => {

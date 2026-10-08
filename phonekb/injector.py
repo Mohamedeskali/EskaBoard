@@ -588,9 +588,13 @@ class Injector:
         """Press backspace multiple times for live mode."""
         if count <= 0:
             return
+        # Not tap(): its 20 ms of pauses made a long rewrite (editing in the
+        # middle of a long text) take tens of seconds
+        sym = KEYSYMS["backspace"]
         for _ in range(count):
-            self.portal.tap(KEYSYMS["backspace"])
-            time.sleep(0.004)  # 4ms between presses
+            self.portal.keysym(sym, True)
+            self.portal.keysym(sym, False)
+            time.sleep(0.002)
         print(f"Backspace x{count}")
 
     # ---- screenshots ----
