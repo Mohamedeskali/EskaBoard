@@ -379,11 +379,33 @@ def inject_worker(injector, queue):
             time.sleep(PASTE_DELAY)
             injector.press("ctrl+v")
 
+    pending = []  # a message taken off the queue while merging live edits
+
+    def next_message():
+        """The next message, with queued live edits merged into one: while
+        the PC was busy rewriting, the phone may have sent many, and doing
+        each in turn (backspaces, then typing the rest again) falls further
+        and further behind."""
+        data = pending.pop() if pending else queue.get(timeout=IDLE_RESTORE_SECONDS)
+        if not data or data.get("type") != "live":
+            return data
+        edit = live_edit(data)
+        while True:
+            try:
+                more = queue.get_nowait()
+            except queue_mod.Empty:
+                break
+            if not more or more.get("type") != "live":
+                pending.append(more)
+                break
+            edit = merge_live(edit, live_edit(more))
+        return {"type": "live", "delete": edit[0], "insert": edit[1]}
+
     def run():
         while True:
             try:
                 try:
-                    data = queue.get(timeout=IDLE_RESTORE_SECONDS)
+                    data = next_message()
                 except queue_mod.Empty:
                     if idle:
                         idle()
@@ -441,6 +463,22 @@ def inject_worker(injector, queue):
     t = threading.Thread(target=run, daemon=True)
     t.start()
     return t
+
+
+def live_edit(data):
+    """A live message as (delete, insert): backspaces at the end of what the
+    box typed, then text typed there."""
+    count, text = data.get("delete", 0), data.get("insert", "")
+    return (count if type(count) is int and count > 0 else 0,
+            text if isinstance(text, str) else "")
+
+
+def merge_live(first, then):
+    """One live edit doing first, then then."""
+    (count, text), (count2, text2) = first, then
+    if count2 <= len(text):
+        return count, text[:len(text) - count2] + text2
+    return count + count2 - len(text), text2
 
 
 def decode_image(text):
