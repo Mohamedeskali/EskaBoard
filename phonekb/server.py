@@ -9,6 +9,7 @@ from collections import defaultdict, deque
 from aiohttp import web, WSMsgType, WSCloseCode
 from pathlib import Path
 
+from .files import BadFile, FileReceiver
 from .secure import Box, BadFrame
 
 STATIC = Path(__file__).parent / "static"
@@ -21,6 +22,11 @@ HELLO_TIMEOUT = 10
 # encrypted and base64 again (about 1.8x its size)
 MAX_FRAME = 32 << 20
 HEARTBEAT_SECONDS = 20  # WebSocket pings: a phone that stopped answering is dropped
+PASTE_DELAY = 0.3       # auto-paste: let the clipboard take the image before Ctrl+V
+
+# What the phone may send to the typing queue (file_* messages are handled
+# by the session; anything else, such as the worker's own "_image_file", is dropped)
+PHONE_TYPES = {"text", "key", "erase", "screenshot", "image", "live"}
 
 # Close codes the page understands; it stops reconnecting on these
 CLOSE_BAD_FRAME = 4001  # plaintext, wrong key, replay or bad hello
@@ -34,8 +40,9 @@ CLOSE_HELLO_TIMEOUT = 4004
 class Server:
     # notify-send; on Windows the status page shows the connection instead
     def __init__(self, injector, token, key, notify=sys.platform != "win32",
-                 heartbeat=HEARTBEAT_SECONDS):
+                 heartbeat=HEARTBEAT_SECONDS, files_dir=None):
         self.injector = injector
+        self.files_dir = files_dir  # None: Downloads/EskaBoard
         self.token = token
         self.box = Box(key)
         self.notify = notify
@@ -166,15 +173,21 @@ class Server:
             await ws.close(code=CLOSE_NEW_QR, message=b"new QR")
             return ws
 
-        # Authenticated: replace the existing connection
-        if self.ws:
-            await self.ws.close(code=CLOSE_REPLACED, message=b"replaced")
-        self.ws = ws
+        # A short side connection from the app's floating buttons: it sends a
+        # few messages (same sid/ctr rules) and closes, without pushing the
+        # board page out or counting as the connected phone
+        oneshot = hello.get("oneshot") is True
+        if not oneshot:
+            # Authenticated: replace the existing connection
+            if self.ws:
+                await self.ws.close(code=CLOSE_REPLACED, message=b"replaced")
+            self.ws = ws
+            self._event("connected", f"Phone connected ({ip})", ip)
+            self._notify_connected(ip)
+            await self.send_screens()
         last_ctr = 1
         last_seq = 0
-        self._event("connected", f"Phone connected ({ip})", ip)
-        self._notify_connected(ip)
-        await self.send_screens()
+        files = FileReceiver(self.files_dir)
 
         try:
             async for msg in ws:
@@ -202,6 +215,15 @@ class Server:
                             break
                         continue
 
+                    msg_type = data.get("type")
+                    if isinstance(msg_type, str) and msg_type.startswith("file_"):
+                        if not await self._file_message(ws, files, data):
+                            break
+                        continue
+                    if msg_type not in PHONE_TYPES:
+                        print(f"Unknown message type {msg_type!r}, dropped")
+                        continue
+
                     # For live messages, check sequence order
                     if data.get("type") == "live":
                         seq = data.get("seq", 0)
@@ -217,12 +239,41 @@ class Server:
                 elif msg.type == WSMsgType.ERROR:
                     print(f"WS error: {ws.exception()}")
         finally:
+            files.abort()  # a file cut short is not kept
+            if oneshot:
+                self._last_active = time.monotonic()  # the phone is in use
             if self.ws is ws:
                 self.ws = None
                 self._last_active = time.monotonic()
                 self._event("disconnected", "Phone disconnected")
 
         return ws
+
+    async def _file_message(self, ws, files, data):
+        """A photo or file from the phone (see files.py). Answers "file_saved"
+        when it is done or dropped; False if the phone went away."""
+        file_id = data.get("id") if isinstance(data.get("id"), str) else ""
+        try:
+            done = files.handle(data)
+        except (BadFile, OSError) as e:
+            files.abort()
+            print(f"File from the phone dropped: {e}")
+            answer = {"type": "file_saved", "id": file_id, "ok": False}
+        else:
+            if done is None:
+                return True
+            incoming, path = done
+            print(f"File from the phone: {path} ({incoming.size} bytes)")
+            # A single photo also goes on the clipboard (and is pasted if asked)
+            if data.get("clipboard") is True and incoming.mime.startswith("image/"):
+                await self.inject_queue.put({"type": "_image_file", "path": str(path),
+                                             "paste": data.get("paste") is True})
+            answer = {"type": "file_saved", "id": file_id, "ok": True, "name": path.name}
+        try:
+            await ws.send_str(self.box.seal(answer))
+        except ConnectionResetError:
+            return False
+        return True
 
     async def send_screens(self):
         """Tell the phone how many screens can be captured (one button each)."""
@@ -302,6 +353,11 @@ class DryRunInjector:
         image, _png = phone_png(data)
         print(f"[dry-run] phone screenshot {image.width}x{image.height} ({len(data)} bytes)")
 
+    def clipboard_image(self, data):
+        from .screenshot import any_png
+        image, _png = any_png(data)
+        print(f"[dry-run] photo on the clipboard {image.width}x{image.height}")
+
 
 IDLE_RESTORE_SECONDS = 1.0  # typing pause after which the clipboard is restored
 
@@ -316,6 +372,12 @@ def inject_worker(injector, queue):
     import queue as queue_mod
 
     idle = getattr(injector, "idle", None)
+
+    def paste_if_asked(data):
+        # Auto-paste (phone setting): the image is on the clipboard, paste it
+        if data.get("paste") is True:
+            time.sleep(PASTE_DELAY)
+            injector.press("ctrl+v")
 
     pending = []  # a message taken off the queue while merging live edits
 
@@ -371,6 +433,12 @@ def inject_worker(injector, queue):
                     # A screenshot from the phone, for the PC's clipboard
                     if data.get("format") == "png" and hasattr(injector, "phone_image"):
                         injector.phone_image(decode_image(data.get("data")))
+                        paste_if_asked(data)
+                elif msg_type == "_image_file":
+                    # A photo sent as a file (already saved): on the clipboard too
+                    if hasattr(injector, "clipboard_image"):
+                        injector.clipboard_image(Path(data["path"]).read_bytes())
+                        paste_if_asked(data)
                 elif msg_type == "live":
                     delete_count = data.get("delete", 0)
                     insert = data.get("insert", "")

@@ -8,6 +8,8 @@ from PIL import Image
 
 MAX_PHONE_PNG = 16 << 20           # bytes: a phone screenshot is a few MB
 MAX_PHONE_PIXELS = 40_000_000      # 40 MP: well above any phone screen
+MAX_PHOTO = 64 << 20               # bytes: a photo sent as a file, for the clipboard
+PHOTO_FORMATS = {"PNG", "JPEG", "WEBP", "GIF", "BMP"}
 
 
 class BadImage(ValueError):
@@ -88,6 +90,31 @@ def phone_png(data):
         raise
     except Exception as e:  # truncated or corrupt
         raise BadImage(f"unreadable PNG: {e}") from None
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGBA")
+    return image, to_png(image)
+
+
+def any_png(data):
+    """A photo sent as a file (PNG, JPEG, WebP, GIF or BMP), checked like
+    phone_png, turned upright and encoded again as PNG: (image, png)."""
+    from PIL import ImageOps
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        raise BadImage("no image data")
+    if len(data) > MAX_PHOTO:
+        raise BadImage(f"image too large ({len(data)} bytes)")
+    try:
+        image = Image.open(io.BytesIO(data))
+        if image.format not in PHOTO_FORMATS:
+            raise BadImage(f"unsupported image format {image.format}")
+        if image.width * image.height > MAX_PHONE_PIXELS:
+            raise BadImage(f"image too large ({image.width}x{image.height})")
+        image.load()
+        image = ImageOps.exif_transpose(image)
+    except BadImage:
+        raise
+    except Exception as e:  # truncated, corrupt or not an image
+        raise BadImage(f"unreadable image: {e}") from None
     if image.mode not in ("RGB", "RGBA"):
         image = image.convert("RGBA")
     return image, to_png(image)

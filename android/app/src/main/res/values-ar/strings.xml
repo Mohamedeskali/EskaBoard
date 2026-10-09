@@ -24,9 +24,6 @@
     <string name="tool_copy">نسخ (Ctrl+C)</string>
     <string name="tool_paste">لصق (Ctrl+V)</string>
     <string name="tool_shots">لقطات شاشة الحاسوب</string>
-    <string name="floating_title">زر لقطة الشاشة العائم</string>
-    <string name="floating_switch">إظهار الزر العائم</string>
-    <string name="floating_explain">زر دائري فوق كل التطبيقات، اسحبه أينما شئت. اللمس يأخذ لقطة لشاشة الهاتف: تُنسخ في حافظة الهاتف، وإذا كان EskaBoard متصلًا ففي حافظة الحاسوب أيضًا (وفي Pictures/Screenshots). يطلب Android الإذن بالظهور فوق التطبيقات الأخرى وبتسجيل الشاشة: اختر الشاشة بأكملها.</string>
     <string name="overlay_explain">اسمح لـ EskaBoard بالظهور فوق التطبيقات الأخرى، ثم ارجع.</string>
     <string name="overlay_denied">يحتاج الزر العائم إلى إذن «الظهور فوق التطبيقات الأخرى».</string>
     <string name="capture_denied">يحتاج الزر العائم إلى إذن تسجيل الشاشة.</string>
@@ -40,4 +37,24 @@
     <string name="shot_copied_only">نُسخت لقطة الشاشة في الهاتف (الحاسوب غير متصل)</string>
     <string name="shot_copied_too_big">نُسخت لقطة الشاشة في الهاتف (كبيرة جدًا للحاسوب)</string>
     <string name="shot_failed">تعذر التقاط الشاشة</string>
+    <!-- Floating Enter button -->
+    <string name="enter_button">اضغط Enter في الحاسوب</string>
+    <string name="enter_channel">زر الإدخال العائم</string>
+    <string name="enter_notification_text">المس الزر لضغط Enter في الحاسوب. المس هنا للإعدادات.</string>
+    <string name="enter_not_sent">لم يُرسل Enter (الحاسوب غير متصل)</string>
+    <string name="floating_failed">تعذر تشغيل الزر العائم.</string>
+    <!-- Photos/files and auto-paste -->
+    <string name="tool_files">إرسال الصور والملفات</string>
+    <string name="pc_title">على الحاسوب</string>
+    <string name="auto_paste_switch">لصق تلقائي</string>
+    <!-- Settings rows -->
+    <string name="floating_section">الأزرار العائمة</string>
+    <string name="shot_row_title">لقطة الشاشة</string>
+    <string name="shot_row_subtitle">التقط أي تطبيق وأرسله إلى الحاسوب</string>
+    <string name="enter_row_title">إدخال</string>
+    <string name="enter_row_subtitle">اضغط Enter في الحاسوب من أي تطبيق</string>
+    <string name="floating_hint">أزرار دائرية فوق كل التطبيقات، اسحبها أينما شئت. تعمل حتى وEskaBoard في الخلفية. يطلب Android الإذن بالظهور فوق التطبيقات الأخرى (وللقطات، بتسجيل الشاشة: اختر الشاشة بأكملها). يمكنك أيضًا تشغيلها من الشريط العلوي للوحة.</string>
+    <string name="auto_paste_subtitle">لقطة الشاشة أو صورة واحدة تُلصق حيث المؤشر في الحاسوب. الملفات تُحفظ في التنزيلات/EskaBoard.</string>
+    <string name="tool_float_shot">لقطة عائمة (الشريط العلوي)</string>
+    <string name="tool_float_enter">إدخال عائم (الشريط العلوي)</string>
 </resources>

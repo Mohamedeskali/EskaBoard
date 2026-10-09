@@ -29,9 +29,6 @@
     <string name="tool_copy">Copy (Ctrl+C)</string>
     <string name="tool_paste">Paste (Ctrl+V)</string>
     <string name="tool_shots">PC screenshots</string>
-    <string name="floating_title">Floating screenshot button</string>
-    <string name="floating_switch">Show the floating button</string>
-    <string name="floating_explain">A round button over all apps; drag it anywhere. A tap takes a screenshot of the phone: it goes to the phone\'s clipboard and, when EskaBoard is connected, to the PC\'s clipboard (and Pictures/Screenshots). Android asks to display over other apps and to capture the screen: choose the entire screen.</string>
     <string name="overlay_explain">Allow EskaBoard to display over other apps, then come back.</string>
     <string name="overlay_denied">The floating button needs “Display over other apps”.</string>
     <string name="capture_denied">The floating button needs the screen capture permission.</string>
@@ -45,4 +42,24 @@
     <string name="shot_copied_only">Screenshot copied on the phone (PC not connected)</string>
     <string name="shot_copied_too_big">Screenshot copied on the phone (too large for the PC)</string>
     <string name="shot_failed">The screenshot failed</string>
+    <!-- Floating Enter button -->
+    <string name="enter_button">Press Enter on the PC</string>
+    <string name="enter_channel">Floating Enter button</string>
+    <string name="enter_notification_text">Tap the button to press Enter on the PC. Tap here for settings.</string>
+    <string name="enter_not_sent">Enter not sent (PC not connected)</string>
+    <string name="floating_failed">The floating button could not start.</string>
+    <!-- Photos/files and auto-paste -->
+    <string name="tool_files">Send photos and files</string>
+    <string name="pc_title">On the PC</string>
+    <string name="auto_paste_switch">Paste automatically</string>
+    <!-- Settings rows -->
+    <string name="floating_section">Floating buttons</string>
+    <string name="shot_row_title">Screenshot</string>
+    <string name="shot_row_subtitle">Capture any app and send it to the PC</string>
+    <string name="enter_row_title">Enter</string>
+    <string name="enter_row_subtitle">Press Enter on the PC from any app</string>
+    <string name="floating_hint">Round buttons over all apps; drag them anywhere. They work even when EskaBoard is in the background. Android asks to display over other apps (and, for screenshots, to capture the screen: choose the entire screen). You can also turn them on from the board\'s top bar.</string>
+    <string name="auto_paste_subtitle">A screenshot or a single photo is pasted where the PC\'s cursor is. Files go to Downloads/EskaBoard.</string>
+    <string name="tool_float_shot">Floating screenshot (top bar)</string>
+    <string name="tool_float_enter">Floating Enter (top bar)</string>
 </resources>

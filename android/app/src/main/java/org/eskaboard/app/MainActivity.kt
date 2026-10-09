@@ -20,7 +20,7 @@ class MainActivity : BaseActivity() {
     private lateinit var lastButton: Button
     private lateinit var message: TextView
 
-    private val prefs by lazy { getSharedPreferences("eskaboard", Context.MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
 
     private val scan = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { open(it, R.string.not_a_code) } // null: the user went back
@@ -118,7 +118,7 @@ class MainActivity : BaseActivity() {
         board.launch(Intent(this, BoardActivity::class.java).putExtra(BoardActivity.EXTRA_URL, link.url))
     }
 
-    private fun lastLink(): BoardLink? = prefs.getString(KEY_LAST, null)?.let(BoardLink::parse)
+    private fun lastLink(): BoardLink? = lastLink(this)
 
     private fun forgetLast() {
         prefs.edit { remove(KEY_LAST) }
@@ -139,7 +139,12 @@ class MainActivity : BaseActivity() {
         message.visibility = View.GONE
     }
 
-    private companion object {
-        const val KEY_LAST = "last_link"
+    companion object {
+        private const val KEY_LAST = "last_link"
+        private const val PREFS = "eskaboard"
+
+        /** The PC last opened in the app (the floating buttons send there too). */
+        fun lastLink(context: Context): BoardLink? =
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_LAST, null)?.let(BoardLink::parse)
     }
 }

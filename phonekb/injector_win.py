@@ -188,6 +188,12 @@ class Injector:
         set_clipboard_image(screenshot.to_dib(image), png)
         print(f"Phone screenshot: {path}")
 
+    def clipboard_image(self, data):
+        """A photo sent as a file (already saved): put it on the clipboard."""
+        image, png = screenshot.any_png(data)
+        set_clipboard_image(screenshot.to_dib(image), png)
+        print("Photo from the phone on the clipboard")
+
 
 def monitors():
     """Monitor rectangles (x, y, width, height) in desktop pixels, left to right."""

@@ -1,6 +1,5 @@
 package org.eskaboard.app
 
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -27,27 +26,21 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.util.Base64
-import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.core.content.edit
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 
 /**
  * The floating screenshot button: a round button over every app. A tap takes
  * a screenshot of the phone (without the button), puts it on the phone's
- * clipboard and, when the board page is connected, sends it to the PC's
- * clipboard through the page's encrypted session.
+ * clipboard and sends it to the PC's clipboard through the app's own
+ * encrypted connection (PcSender), whatever state the board page is in.
  *
  * Runs as a foreground service (type mediaProjection) with a notification.
  * The screen-capture consent is given once when the service starts; Android
@@ -67,8 +60,7 @@ class ShotService : Service() {
     private var height = 0
 
     private lateinit var windows: WindowManager
-    private var button: ImageView? = null
-    private var params: WindowManager.LayoutParams? = null
+    private var button: FloatingButton? = null
     private var busy = false
 
     override fun attachBaseContext(newBase: Context) {
@@ -127,14 +119,14 @@ class ShotService : Service() {
         }, main)
         startCapture()
         showButton()
-        BoardBridge.shotServiceChanged() // keep the board connected behind other apps
+        BoardBridge.floatingChanged() // keep the board connected behind other apps
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         running = false
-        BoardBridge.shotServiceChanged()
-        button?.let { runCatching { windows.removeView(it) } }
+        BoardBridge.floatingChanged()
+        button?.remove()
         button = null
         display?.release()
         display = null
@@ -168,7 +160,7 @@ class ShotService : Service() {
                 reader = next
             }
         }
-        params?.let { placeButton(it.x, it.y) }
+        button?.keepOnScreen()
     }
 
     // ---- capture ----
@@ -219,10 +211,10 @@ class ShotService : Service() {
         busy = true
         // Hidden while the frame is taken: hiding it changes the screen, so
         // the newest frame after the delay is the screen without the button
-        button?.visibility = View.INVISIBLE
+        button?.view?.visibility = View.INVISIBLE
         capture.postDelayed({
             val bitmap = latest?.let(::toBitmap)
-            main.post { button?.visibility = View.VISIBLE }
+            main.post { button?.view?.visibility = View.VISIBLE }
             if (bitmap == null) {
                 main.post { done(getString(R.string.shot_failed)) }
                 return@postDelayed
@@ -278,7 +270,8 @@ class ShotService : Service() {
             done(getString(R.string.shot_copied_too_big))
             return
         }
-        BoardBridge.sendImage(base64) { sent ->
+        val image = mapOf("type" to "image", "format" to "png", "data" to base64, "paste" to AppSettings.autoPaste(this))
+        PcSender.send(this, listOf(image)) { sent ->
             done(getString(if (sent) R.string.shot_copied_sent else R.string.shot_copied_only))
         }
     }
@@ -290,79 +283,10 @@ class ShotService : Service() {
 
     // ---- floating button ----
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun showButton() {
-        val size = (BUTTON_DP * resources.displayMetrics.density).toInt()
-        val view = ImageView(this).apply {
-            setImageResource(R.drawable.ic_camera)
-            setBackgroundResource(R.drawable.float_button)
-            val pad = size / 4
-            setPadding(pad, pad, pad, pad)
-            contentDescription = getString(R.string.shot_button)
-            elevation = 6 * resources.displayMetrics.density
-        }
-        @Suppress("DEPRECATION")
-        val type = if (Build.VERSION.SDK_INT >= 26) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
-        val lp = WindowManager.LayoutParams(
-            size, size, type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        ).apply { gravity = Gravity.TOP or Gravity.START }
-        params = lp
-
-        val prefs = getSharedPreferences("floating", MODE_PRIVATE)
-        val slop = ViewConfiguration.get(this).scaledTouchSlop
-        var downX = 0f
-        var downY = 0f
-        var startX = 0
-        var startY = 0
-        var dragging = false
-        view.setOnTouchListener { _, e ->
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = e.rawX
-                    downY = e.rawY
-                    startX = lp.x
-                    startY = lp.y
-                    dragging = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = e.rawX - downX
-                    val dy = e.rawY - downY
-                    if (dragging || abs(dx) > slop || abs(dy) > slop) {
-                        dragging = true
-                        placeButton(startX + dx.toInt(), startY + dy.toInt())
-                    }
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (dragging) {
-                        prefs.edit { putInt("x", lp.x).putInt("y", lp.y) }
-                    } else {
-                        view.performClick()
-                        takeScreenshot()
-                    }
-                }
-            }
-            true
-        }
-        button = view
-        val (w, h, _) = screenSize()
-        windows.addView(view, lp)
-        placeButton(prefs.getInt("x", w - size - size / 3), prefs.getInt("y", h / 3))
-    }
-
-    /** Moves the button, kept fully on screen. */
-    private fun placeButton(x: Int, y: Int) {
-        val view = button ?: return
-        val lp = params ?: return
-        val (w, h, _) = screenSize()
-        lp.x = x.coerceIn(0, (w - lp.width).coerceAtLeast(0))
-        lp.y = y.coerceIn(0, (h - lp.height).coerceAtLeast(0))
-        runCatching { windows.updateViewLayout(view, lp) }
+        button = FloatingButton(this, R.drawable.ic_camera, getString(R.string.shot_button), "floating", 1 / 3f) {
+            takeScreenshot()
+        }.also { it.show() }
     }
 
     // ---- notification ----
@@ -399,6 +323,12 @@ class ShotService : Service() {
         var running = false
             private set
 
+        /** Stops the service; [running] is false at once (Settings and the board show it). */
+        fun stop(context: Context) {
+            running = false
+            context.stopService(Intent(context, ShotService::class.java))
+        }
+
         /** Starts the service with the screen-capture consent; false if Android refused. */
         fun start(context: Context, resultCode: Int, data: Intent): Boolean {
             running = true
@@ -421,7 +351,6 @@ class ShotService : Service() {
         const val ACTION_STOP = "org.eskaboard.app.STOP_SHOT"
         private const val CHANNEL = "floating_shot"
         private const val NOTIFICATION_ID = 1
-        private const val BUTTON_DP = 56
         private const val HIDE_MS = 300L
         private const val KEEP_SHOTS = 5
         // The PC accepts PNGs up to 16 MB (phonekb/screenshot.py); a screenshot is a few MB

@@ -621,6 +621,12 @@ class Injector:
         self._copy_image(png)
         print(f"Phone screenshot: {path}")
 
+    def clipboard_image(self, data):
+        """A photo sent as a file (already saved): put it on the clipboard."""
+        _image, png = screenshot.any_png(data)
+        self._copy_image(png)
+        print("Photo from the phone on the clipboard")
+
     def _copy_image(self, png):
         # Typing later saves and restores the image like any clipboard
         self._dirty = False

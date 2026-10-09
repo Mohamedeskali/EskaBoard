@@ -1,46 +1,22 @@
 package org.eskaboard.app
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
+import android.view.View
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Switch
-import android.widget.Toast
+import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 
-/** Language, the board's tool buttons, and the floating screenshot button. */
+/** The floating buttons, auto-paste, the board's tool buttons, and the language. */
 @Suppress("UseSwitchCompatOrMaterialCode") // no AppCompat in this app
 class SettingsActivity : BaseActivity() {
-    private lateinit var floating: Switch
+    private lateinit var shot: Switch
+    private lateinit var enter: Switch
     private var updating = false
-    private var enabling = false // between the switch and the last permission answer
 
-    private val overlayPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (Settings.canDrawOverlays(this)) askNotifications() else cancelFloating(R.string.overlay_denied)
-    }
-
-    // The service's notification; the button works without it, so the answer doesn't matter
-    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        askCapture()
-    }
-
-    private val capturePermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val data = result.data
-        if (result.resultCode != RESULT_OK || data == null) {
-            cancelFloating(R.string.capture_denied)
-            return@registerForActivityResult
-        }
-        enabling = false
-        if (!ShotService.start(this, result.resultCode, data)) cancelFloating(R.string.capture_denied)
-    }
+    private val floating = FloatingSetup(this) { showFloating() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -48,20 +24,45 @@ class SettingsActivity : BaseActivity() {
         setContentView(R.layout.activity_settings)
         padForSystemBars(findViewById(R.id.root))
 
-        setUpLanguage()
-        setUpTools()
-
-        floating = findViewById(R.id.floating)
-        floating.setOnCheckedChangeListener { _, on ->
-            if (updating) return@setOnCheckedChangeListener
-            if (on) enableFloating() else stopService(Intent(this, ShotService::class.java))
+        shot = row(R.id.row_shot, R.drawable.ic_camera, R.string.shot_row_title, R.string.shot_row_subtitle) { on ->
+            floating.set(FloatingSetup.Kind.SHOT, on)
         }
+        enter = row(R.id.row_enter, R.drawable.ic_enter, R.string.enter_row_title, R.string.enter_row_subtitle) { on ->
+            floating.set(FloatingSetup.Kind.ENTER, on)
+        }
+        row(R.id.row_auto_paste, R.drawable.ic_auto_paste, R.string.auto_paste_switch, R.string.auto_paste_subtitle) { on ->
+            AppSettings.setAutoPaste(this, on)
+        }.isChecked = AppSettings.autoPaste(this)
+
+        setUpTools()
+        setUpLanguage()
     }
 
     override fun onResume() {
         super.onResume()
-        // The service may have stopped meanwhile (notification's Stop, "stop sharing")
-        if (!enabling) setFloating(ShotService.running)
+        // A service may have stopped meanwhile (notification's Stop, "stop sharing")
+        showFloating()
+    }
+
+    /** Fills an included setting_row; a tap anywhere on it flips its switch. */
+    private fun row(id: Int, icon: Int, title: Int, subtitle: Int, onChange: (Boolean) -> Unit): Switch {
+        val row = findViewById<View>(id)
+        row.findViewById<ImageView>(R.id.row_icon).setImageResource(icon)
+        row.findViewById<TextView>(R.id.row_title).setText(title)
+        row.findViewById<TextView>(R.id.row_subtitle).setText(subtitle)
+        val switch = row.findViewById<Switch>(R.id.row_switch)
+        switch.setOnCheckedChangeListener { _, on -> if (!updating) onChange(on) }
+        row.setOnClickListener { switch.toggle() }
+        row.contentDescription = getString(title)
+        return switch
+    }
+
+    private fun showFloating() {
+        if (floating.busy) return // the switch stays on until the permissions are answered
+        updating = true
+        shot.isChecked = floating.running(FloatingSetup.Kind.SHOT)
+        enter.isChecked = floating.running(FloatingSetup.Kind.ENTER)
+        updating = false
     }
 
     private fun setUpLanguage() {
@@ -83,7 +84,10 @@ class SettingsActivity : BaseActivity() {
             "erase" to R.string.tool_erase,
             "copy" to R.string.tool_copy,
             "paste" to R.string.tool_paste,
+            "files" to R.string.tool_files,
             "shots" to R.string.tool_shots,
+            "float_shot" to R.string.tool_float_shot,
+            "float_enter" to R.string.tool_float_enter,
         )
         val container = findViewById<LinearLayout>(R.id.tools)
         val hidden = AppSettings.hiddenTools(this)
@@ -94,46 +98,5 @@ class SettingsActivity : BaseActivity() {
             row.setOnCheckedChangeListener { _, shown -> AppSettings.setToolShown(this, tool, shown) }
             container.addView(row)
         }
-    }
-
-    // ---- floating screenshot button: overlay, notifications, then screen capture ----
-
-    private fun enableFloating() {
-        enabling = true
-        if (Settings.canDrawOverlays(this)) {
-            askNotifications()
-        } else {
-            Toast.makeText(this, R.string.overlay_explain, Toast.LENGTH_LONG).show()
-            overlayPermission.launch(
-                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-            )
-        }
-    }
-
-    private fun askNotifications() {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            askCapture()
-        }
-    }
-
-    private fun askCapture() {
-        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        capturePermission.launch(manager.createScreenCaptureIntent())
-    }
-
-    private fun cancelFloating(message: Int) {
-        enabling = false
-        setFloating(false)
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-    }
-
-    private fun setFloating(on: Boolean) {
-        updating = true
-        floating.isChecked = on
-        updating = false
     }
 }

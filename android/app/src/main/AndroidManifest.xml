@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <!-- Floating Enter button (off until turned on in Settings) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- The PC serves the page over plain HTTP on the LAN (any IP), and the page
@@ -59,6 +61,17 @@
             android:name=".ShotService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <!-- A floating button over other apps that presses Enter on the PC; the
+             foreground service keeps the board's connection open meanwhile -->
+        <service
+            android:name=".EnterService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating button that sends the Enter key to the user's paired PC" />
+        </service>
 
         <!-- Screenshots go on the clipboard as content:// URIs -->
         <provider

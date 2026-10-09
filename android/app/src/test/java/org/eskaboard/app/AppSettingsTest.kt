@@ -6,17 +6,17 @@ import org.junit.Test
 class AppSettingsTest {
     @Test
     fun pageJsonHasTheLanguageAndHiddenTools() {
-        assertEquals("""{"lang":"","hidden":[]}""", AppSettings.pageJson("", emptySet()))
+        assertEquals("""{"lang":"","hidden":[],"autoPaste":false}""", AppSettings.pageJson("", emptySet()))
         assertEquals(
-            """{"lang":"fr","hidden":["esc","paste","shots"]}""",
-            AppSettings.pageJson("fr", setOf("shots", "esc", "paste")), // in toolbar order
+            """{"lang":"fr","hidden":["esc","paste","files","shots"],"autoPaste":true}""",
+            AppSettings.pageJson("fr", setOf("shots", "esc", "files", "paste"), true), // in toolbar order
         )
     }
 
     @Test
     fun unknownValuesNeverReachThePage() {
         assertEquals(
-            """{"lang":"","hidden":["copy"]}""",
+            """{"lang":"","hidden":["copy"],"autoPaste":false}""",
             AppSettings.pageJson("x\"});alert(1)//", setOf("copy", "\"]}", "unknown")),
         )
     }
@@ -24,6 +24,9 @@ class AppSettingsTest {
     @Test
     fun toolNamesMatchThePage() {
         // data-tool values in phonekb/static/index.html
-        assertEquals(listOf("enter", "esc", "erase", "copy", "paste", "shots"), AppSettings.TOOLS)
+        assertEquals(
+            listOf("enter", "esc", "erase", "copy", "paste", "files", "shots", "float_shot", "float_enter"),
+            AppSettings.TOOLS,
+        )
     }
 }

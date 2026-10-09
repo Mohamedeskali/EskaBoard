@@ -95,6 +95,8 @@
         .segmented button.active { background: var(--accent); color: var(--on-accent); }
         /* Offline the status needs its text: make room by dropping the mode icons */
         .status:not(.online) ~ .segmented svg.i { display: none; }
+        /* Narrow phones with the app's floating-button icons too */
+        @media (max-width: 400px) { .with-float .segmented svg.i { display: none; } }
 
         .icon-btn {
             position: relative; display: flex; align-items: center; justify-content: center; gap: 3px;
@@ -103,7 +105,9 @@
             font-size: 12px; font-weight: 700;
         }
         .icon-btn svg.i { width: 18px; height: 18px; }
-        .icon-btn[hidden], .tool.off { display: none; }
+        .icon-btn[hidden], .icon-btn.off, .tool.off { display: none; }
+        /* The app's floating buttons, when on */
+        .icon-btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
         .icon-btn:active { background: var(--raised-down); }
         /* Native picker over the language button: the phone's own list */
         .icon-btn select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; }
@@ -212,6 +216,7 @@
         <symbol id="i-erase" viewBox="0 0 24 24"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></symbol>
         <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
         <symbol id="i-paste" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14h6"/><path d="M12 11v6"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="m21.4 11.1-8.6 8.6a5.7 5.7 0 0 1-8-8l8.6-8.6a3.8 3.8 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.7-2.7l8-7.9"/></symbol>
         <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
         <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
     </svg>
@@ -229,7 +234,7 @@
                 <svg class="i" aria-hidden="true"><use href="#i-live"/></svg><span data-i18n="live"></span>
             </button>
         </div>
-        <label class="icon-btn" data-i18n-title="language">
+        <label class="icon-btn" id="lang-btn" data-i18n-title="language">
             <svg class="i" aria-hidden="true"><use href="#i-globe"/></svg>
             <select id="lang" data-i18n-label="language">
                 <option value="ar">العربية</option>
@@ -240,7 +245,15 @@
         <button type="button" class="icon-btn" id="new-btn" data-i18n-title="new">
             <svg class="i" aria-hidden="true"><use href="#i-new"/></svg>
         </button>
-        <!-- Android app only: its settings screen -->
+        <!-- Android app only: its floating buttons (on/off) and its settings screen -->
+        <button type="button" class="icon-btn" id="float-shot" data-tool="float_shot" data-float="shot"
+                data-i18n-title="floatShot" aria-pressed="false" hidden>
+            <svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="float-enter" data-tool="float_enter" data-float="enter"
+                data-i18n-title="floatEnter" aria-pressed="false" hidden>
+            <svg class="i" aria-hidden="true"><use href="#i-enter"/></svg>
+        </button>
         <button type="button" class="icon-btn" id="settings-btn" data-i18n-title="settings" hidden>
             <svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>
         </button>
@@ -267,6 +280,10 @@
         <button type="button" class="tool" data-tool="paste" data-key="ctrl+v" data-i18n-title="pasteTip">
             <svg class="i" aria-hidden="true"><use href="#i-paste"/></svg><span class="label" data-i18n="paste"></span>
         </button>
+        <button type="button" class="tool gap" id="files-btn" data-tool="files" data-i18n-title="filesTip">
+            <svg class="i" aria-hidden="true"><use href="#i-file"/></svg><span class="label" data-i18n="files"></span>
+        </button>
+        <input type="file" id="files-input" multiple hidden>
         <!-- Screenshot buttons, one per screen, added when the PC says how many -->
     </div>
 
@@ -291,9 +308,11 @@
                 send: 'إرسال', live: 'مباشر', language: 'اللغة',
                 new: 'جديد: يفرغ الخانة دون حذف شيء من الحاسوب',
                 settings: 'الإعدادات',
+                floatShot: 'زر اللقطة العائم', floatEnter: 'زر الإدخال العائم',
                 enter: 'إدخال', enterTip: 'Enter', esc: 'إلغاء', escTip: 'Esc',
                 erase: 'مسح', eraseTip: 'امسح من الحاسوب ما كتبه الهاتف',
                 copy: 'نسخ', copyTip: 'نسخ (Ctrl+C)', paste: 'لصق', pasteTip: 'لصق (Ctrl+V)',
+                files: 'ملفات', filesTip: 'إرسال صور أو ملفات إلى الحاسوب (التنزيلات/EskaBoard)',
                 shot: 'لقطة', shotTip: 'لقطة الشاشة', screen: 'شاشة', screenTip: 'لقطة الشاشة',
                 sendBtn: 'إرسال', autoEnter: 'Enter بعد الإرسال',
                 placeholder: 'اكتب هنا أو استخدم الصوت…',
@@ -310,9 +329,11 @@
                 send: 'Send', live: 'Live', language: 'Language',
                 new: 'New: empty the box without deleting anything on the PC',
                 settings: 'Settings',
+                floatShot: 'Floating screenshot button', floatEnter: 'Floating Enter button',
                 enter: 'Enter', enterTip: 'Enter', esc: 'Escape', escTip: 'Esc',
                 erase: 'Erase', eraseTip: 'Delete on the PC what the phone typed',
                 copy: 'Copy', copyTip: 'Copy (Ctrl+C)', paste: 'Paste', pasteTip: 'Paste (Ctrl+V)',
+                files: 'Files', filesTip: 'Send photos or files to the PC (Downloads/EskaBoard)',
                 shot: 'Capture', shotTip: 'Screenshot', screen: 'Screen', screenTip: 'Screenshot of screen',
                 sendBtn: 'Send', autoEnter: 'Enter after sending',
                 placeholder: 'Type here or use your voice…',
@@ -329,9 +350,11 @@
                 send: 'Envoyer', live: 'Direct', language: 'Langue',
                 new: 'Nouveau : vider la zone sans rien effacer sur le PC',
                 settings: 'Paramètres',
+                floatShot: 'Bouton de capture flottant', floatEnter: 'Bouton Entrée flottant',
                 enter: 'Entrée', enterTip: 'Entrée', esc: 'Échap', escTip: 'Échap',
                 erase: 'Effacer', eraseTip: 'Effacer sur le PC ce que le téléphone a tapé',
                 copy: 'Copier', copyTip: 'Copier (Ctrl+C)', paste: 'Coller', pasteTip: 'Coller (Ctrl+V)',
+                files: 'Fichiers', filesTip: 'Envoyer des photos ou fichiers au PC (Téléchargements/EskaBoard)',
                 shot: 'Capture', shotTip: "Capture d'écran", screen: 'Écran', screenTip: "Capture de l'écran",
                 sendBtn: 'Envoyer', autoEnter: 'Entrée après envoi',
                 placeholder: 'Écrivez ici ou utilisez la voix…',
@@ -480,7 +503,7 @@
         const PONG_MS = 4000;
         const CHECK_MS = 5000;
         const PING_EVERY_MS = 25000;
-        const SEND_IMAGE_WAIT_MS = 12000;
+        const CONNECT_WAIT_MS = 12000;
 
         function parseKey() {
             const m = location.hash.match(/^#k=([A-Za-z0-9_-]+)$/);
@@ -580,6 +603,7 @@
                 const msg = unseal(ev.data);
                 if (ready) {
                     if (msg && msg.type === 'screens') showScreens(msg.count);
+                    if (msg && msg.type === 'file_saved') fileSaved(msg);
                     if (msg && msg.type === 'pong' && msg.ctr === pingCtr) {
                         clearTimeout(pongTimer);
                         pongTimer = null;
@@ -942,9 +966,10 @@
         // Its settings: the page language and the tool buttons to hide
         const app = window.EskaBoardApp || null;
         let hiddenTools = [];
+        let autoPaste = false;  // a photo that reaches the PC's clipboard is pasted there too
 
         function showTools() {
-            quickKeys.querySelectorAll('[data-tool]').forEach(btn => {
+            document.querySelectorAll('[data-tool]').forEach(btn => {
                 btn.classList.toggle('off', hiddenTools.includes(btn.dataset.tool));
             });
         }
@@ -954,6 +979,8 @@
             let settings = {};
             try { settings = JSON.parse(app.settings()) || {}; } catch (e) { return; }
             hiddenTools = Array.isArray(settings.hidden) ? settings.hidden : [];
+            autoPaste = settings.autoPaste === true;
+            showFloating();
             if (I18N[settings.lang] && settings.lang !== lang) {
                 lang = settings.lang;
                 applyLang();
@@ -962,31 +989,139 @@
         }
         window.eskaboardApplySettings = applyAppSettings;
 
-        // The app's floating button took a screenshot of the phone: send it to
-        // the PC's clipboard as one more encrypted message of this session
-        // (same sid and counter rules as any other)
-        // The page is usually hidden then (the user is in another app), and the
-        // connection may have dropped: check it with a ping, reconnect if
-        // needed, and only then take the waiting image (the app gives up after 15 s)
-        window.eskaboardSendImage = async function () {
-            let ok = false;
-            try {
-                if (ready) checkAlive();
-                else resume(true);
-                const deadline = Date.now() + SEND_IMAGE_WAIT_MS;  // timers may be throttled while hidden
-                while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
-                    await new Promise(r => setTimeout(r, 200));
+        // True once a ping was answered on the current connection (reconnects
+        // first if it dropped, also while hidden); false after CONNECT_WAIT_MS
+        async function connectedForApp() {
+            if (ready) checkAlive();
+            else resume(true);
+            const deadline = Date.now() + CONNECT_WAIT_MS;  // timers may be throttled while hidden
+            while (Date.now() < deadline && !stopped && !(ready && !pongTimer)) {
+                await new Promise(r => setTimeout(r, 50));
+            }
+            return ready && !pongTimer && !!ws && ws.readyState === WebSocket.OPEN;
+        }
+
+        // The app's floating Enter button pressed Enter on the PC through its
+        // own connection: like the page's Enter key, the text so far is the PC's
+        window.eskaboardKeySent = function () {
+            if (mode === 'live') {
+                textarea.value = '';
+                mirror = '';
+            } else {
+                sent = '';
+            }
+        };
+
+        // ---- Photos and files to the PC (phonekb/files.py) ----
+        // Each file: file_start, file_chunk(s) in order, file_end, as encrypted
+        // messages of the session; the PC answers file_saved. A single photo
+        // also goes on the PC's clipboard (and is pasted with auto-paste).
+        const FILE_CHUNK = 256 * 1024;
+        const MAX_FILE = 500 * 1024 * 1024;  // as on the PC
+        const FILE_ANSWER_MS = 30000;
+        const filesBtn = document.getElementById('files-btn');
+        const filesInput = document.getElementById('files-input');
+        const fileWaiters = {};
+        let sendingFiles = false;
+
+        function fileSaved(msg) {
+            const waiter = fileWaiters[msg.id];
+            if (waiter) waiter(msg);
+        }
+
+        function waitFileSaved(id) {
+            return new Promise(resolve => {
+                const timer = setTimeout(() => { delete fileWaiters[id]; resolve(null); }, FILE_ANSWER_MS);
+                fileWaiters[id] = (msg) => { clearTimeout(timer); delete fileWaiters[id]; resolve(msg); };
+            });
+        }
+
+        function filesLabel(text) {
+            filesBtn.querySelector('.label').textContent = text;
+        }
+
+        async function sendOneFile(file, single, progress) {
+            if (file.size > MAX_FILE || !(await connectedForApp())) return false;
+            const id = toB64(nacl.randomBytes(9));
+            const conn = ws;
+            if (!send({ type: 'file_start', id: id, name: file.name, size: file.size, mime: file.type || '' })) return false;
+            for (let offset = 0, index = 0; offset < file.size; offset += FILE_CHUNK, index++) {
+                const chunk = new Uint8Array(await file.slice(offset, offset + FILE_CHUNK).arrayBuffer());
+                // Don't queue the whole file in memory: wait for the socket to drain
+                while (ws === conn && ready && conn.bufferedAmount > 4 * FILE_CHUNK) {
+                    await new Promise(r => setTimeout(r, 30));
                 }
-                const data = app.takeImage();  // base64 PNG, handed over once
-                if (data && ready && !pongTimer && ws && ws.readyState === WebSocket.OPEN) {
-                    send({ type: 'image', format: 'png', data: data });
-                    ok = true;
+                if (ws !== conn || !ready) return false;  // reconnected meanwhile: that file is lost
+                send({ type: 'file_chunk', id: id, index: index, data: toB64(chunk) });
+                progress(offset + chunk.length);
+            }
+            const answer = waitFileSaved(id);
+            const photo = single && (file.type || '').startsWith('image/');
+            send({ type: 'file_end', id: id, clipboard: photo, paste: photo && autoPaste });
+            const msg = await answer;
+            return !!(msg && msg.ok);
+        }
+
+        async function sendFiles(list) {
+            const files = Array.from(list || []);
+            if (sendingFiles || !files.length) return;
+            sendingFiles = true;
+            filesBtn.disabled = true;
+            const total = files.reduce((n, f) => n + f.size, 0) || 1;
+            let before = 0;
+            let failed = 0;
+            try {
+                for (const file of files) {
+                    filesLabel(`${Math.floor(before / total * 100)}%`);
+                    const ok = await sendOneFile(file, files.length === 1,
+                        (bytes) => filesLabel(`${Math.floor((before + bytes) / total * 100)}%`));
+                    if (!ok) failed++;
+                    before += file.size;
                 }
             } catch (e) {
-                ok = false;
+                failed = files.length;
+            } finally {
+                sendingFiles = false;
+                filesBtn.disabled = false;
             }
-            try { app.imageResult(ok); } catch (e) { /* activity gone */ }
-        };
+            filesLabel(failed ? `✗ ${files.length - failed}/${files.length}` : '✓');
+            if (!failed) flash(filesBtn);
+            setTimeout(() => { if (!sendingFiles) filesLabel(t('files')); }, failed ? 4000 : 2000);
+        }
+
+        filesBtn.addEventListener('click', () => {
+            if (!sendingFiles) filesInput.click();
+        });
+        filesInput.addEventListener('change', () => {
+            const list = Array.from(filesInput.files || []);
+            filesInput.value = '';  // the same file can be picked again
+            sendFiles(list);
+        });
+
+        // The app's floating buttons: an icon each in the top bar, lit while on
+        const floatBtns = document.querySelectorAll('[data-float]');
+
+        function showFloating() {
+            if (!app || !app.floatingState) return;
+            let state = {};
+            try { state = JSON.parse(app.floatingState()) || {}; } catch (e) { return; }
+            floatBtns.forEach(btn => {
+                const on = state[btn.dataset.float] === true;
+                btn.classList.toggle('on', on);
+                btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+
+        if (app && app.floatingState) {
+            floatBtns.forEach(btn => {
+                btn.hidden = false;
+                // The app asks for its permissions, then calls eskaboardApplySettings
+                btn.addEventListener('click', () => app.toggleFloating(btn.dataset.float));
+            });
+            // Room for them: the app's settings have the language
+            document.getElementById('lang-btn').hidden = true;
+            document.body.classList.add('with-float');
+        }
 
         if (app) {
             const settingsBtn = document.getElementById('settings-btn');

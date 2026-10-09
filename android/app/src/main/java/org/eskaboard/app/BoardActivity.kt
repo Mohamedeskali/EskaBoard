@@ -1,7 +1,9 @@
 package org.eskaboard.app
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +11,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -16,6 +20,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 
 /** EskaBoard's phone page, full screen: the same page the browser shows. */
 class BoardActivity : BaseActivity() {
@@ -28,11 +33,22 @@ class BoardActivity : BaseActivity() {
     private var shown = false      // between onResume and onPause
     private var webPaused = false  // web.onPause() called
 
-    // A screenshot from the floating button, waiting for the page to take it
-    private val imageLock = Any()
-    private var pendingImage: String? = null
-    private var pendingDone: ((Boolean) -> Unit)? = null
-    private var imageId = 0
+    // The top bar's floating-button icons turn them on and off from here
+    private val floating = FloatingSetup(this) { floatingChanged() }
+
+    // The page's "Files" button: Android's picker, then the chosen files back to the page
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private val pickFiles = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        val uris = if (result.resultCode != RESULT_OK || data == null) {
+            null
+        } else {
+            data.clipData?.let { clip -> Array(clip.itemCount) { clip.getItemAt(it).uri } }
+                ?: data.data?.let { arrayOf(it) }
+        }
+        fileCallback?.onReceiveValue(uris)
+        fileCallback = null
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,6 +120,27 @@ class BoardActivity : BaseActivity() {
                 )
             }
         }
+        web.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                view: WebView,
+                callback: ValueCallback<Array<Uri>>,
+                params: FileChooserParams,
+            ): Boolean {
+                fileCallback?.onReceiveValue(null) // an earlier picker never answered
+                fileCallback = callback
+                val pick = Intent(Intent.ACTION_GET_CONTENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*")
+                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+                return try {
+                    pickFiles.launch(pick)
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    fileCallback = null
+                    false
+                }
+            }
+        }
         web.loadUrl(link.url)
         BoardBridge.attach(this)
         applyKeepAlive()
@@ -119,20 +156,25 @@ class BoardActivity : BaseActivity() {
             handler.post { startActivity(Intent(this@BoardActivity, SettingsActivity::class.java)) }
         }
 
-        /** The waiting screenshot (base64 PNG), handed over once. */
+        /** {"shot": bool, "enter": bool}: which floating buttons run (the top bar's icons). */
         @JavascriptInterface
-        fun takeImage(): String? = synchronized(imageLock) {
-            pendingImage.also { pendingImage = null }
+        fun floatingState(): String =
+            """{"shot":${ShotService.running},"enter":${EnterService.running}}"""
+
+        /** "shot" or "enter": turn that floating button on (asking for permissions) or off. */
+        @JavascriptInterface
+        fun toggleFloating(kind: String) {
+            val which = when (kind) {
+                "shot" -> FloatingSetup.Kind.SHOT
+                "enter" -> FloatingSetup.Kind.ENTER
+                else -> return
+            }
+            handler.post { floating.toggle(which) }
         }
 
-        /** True while the floating button runs: the page keeps its connection checked in the background. */
+        /** True while a floating button runs: the page keeps its connection checked in the background. */
         @JavascriptInterface
-        fun keepAlive(): Boolean = ShotService.running
-
-        @JavascriptInterface
-        fun imageResult(ok: Boolean) {
-            handler.post { finishImage(ok) }
-        }
+        fun keepAlive(): Boolean = BoardBridge.keepAlive
 
         // The link no longer works (EskaBoard restarted, "QR جديد", or 30 min
         // with no phone): back to the start screen to scan
@@ -142,24 +184,9 @@ class BoardActivity : BaseActivity() {
         }
     }
 
-    /** Main thread: ask the page to send [base64Png] to the PC. */
-    fun sendImage(base64Png: String, done: (Boolean) -> Unit) {
-        finishImage(false) // an older one still waiting: give up on it
-        synchronized(imageLock) { pendingImage = base64Png }
-        pendingDone = done
-        val id = ++imageId
-        web.evaluateJavascript("window.eskaboardSendImage ? (window.eskaboardSendImage(), 'started') : 'no'") {
-            if (it != "\"started\"") finishImage(false) // page not loaded (yet)
-        }
-        // The page checks the connection (reconnects if it dropped) for up to 12 s, then answers
-        handler.postDelayed({ if (imageId == id) finishImage(false) }, IMAGE_TIMEOUT_MS)
-    }
-
-    private fun finishImage(ok: Boolean) {
-        val done = pendingDone ?: return
-        pendingDone = null
-        synchronized(imageLock) { pendingImage = null }
-        done(ok)
+    /** Main thread: a floating button pressed a key on the PC; in live mode the page starts a new text. */
+    fun keySent() {
+        if (::web.isInitialized) web.evaluateJavascript("window.eskaboardKeySent && window.eskaboardKeySent()", null)
     }
 
     private fun finishWith(result: Int) {
@@ -169,18 +196,27 @@ class BoardActivity : BaseActivity() {
         finish()
     }
 
+    /** Main thread: a floating button was turned on or off. */
+    fun floatingChanged() {
+        applyKeepAlive()
+        if (::web.isInitialized) {
+            web.evaluateJavascript("window.eskaboardApplySettings && window.eskaboardApplySettings()", null)
+        }
+    }
+
     /**
-     * While the floating button runs, the page must stay connected behind other
-     * apps so a screenshot can reach the PC: the WebView is not paused, and its
-     * renderer keeps its priority when not visible (otherwise Android freezes it
-     * after a few seconds and the PC drops the connection). The service keeps
-     * the app's process in the foreground. Without the service: the usual
-     * battery-friendly behaviour. Main thread; also called when the service
-     * starts or stops (BoardBridge).
+     * While a floating button (screenshot or Enter) runs, the page stays
+     * connected behind other apps, ready when the user comes back (the buttons
+     * themselves use their own connection, PcSender): the WebView is not
+     * paused, and its renderer keeps its priority when not visible (otherwise
+     * Android freezes it after a few seconds and the PC drops the connection).
+     * The button's service keeps the app's process in the foreground. Without
+     * one: the usual battery-friendly behaviour. Main thread; also called when
+     * a button's service starts or stops (BoardBridge).
      */
     fun applyKeepAlive() {
         if (!::web.isInitialized) return
-        val on = ShotService.running
+        val on = BoardBridge.keepAlive
         if (Build.VERSION.SDK_INT >= 26) {
             web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on)
         }
@@ -219,7 +255,6 @@ class BoardActivity : BaseActivity() {
     override fun onDestroy() {
         BoardBridge.detach(this)
         handler.removeCallbacksAndMessages(null)
-        finishImage(false)
         if (::web.isInitialized) {
             web.stopLoading()
             web.destroy()
@@ -232,7 +267,6 @@ class BoardActivity : BaseActivity() {
         const val RESULT_EXPIRED = RESULT_FIRST_USER
         const val RESULT_BLOCKED = RESULT_FIRST_USER + 1
         const val RESULT_UNREACHABLE = RESULT_FIRST_USER + 2
-        private const val IMAGE_TIMEOUT_MS = 15_000L
         private const val LOAD_RETRIES = 10
         private const val LOAD_RETRY_MS = 2000L
     }
