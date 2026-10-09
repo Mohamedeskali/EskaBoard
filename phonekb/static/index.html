@@ -760,6 +760,11 @@
                 send({ type: 'live', seq: seq, delete: deleteCount, insert: insert });
                 mirror = current;
             }
+            // A new line at the end (e.g. dictated) was typed as Enter: start afresh
+            if (current.endsWith('\n') && enterAtEnd()) {
+                textarea.value = '';
+                mirror = '';
+            }
         }
 
         // Keep focus (and the phone keyboard) on the textarea
@@ -825,12 +830,50 @@
             }, wait);
         });
 
+        // Enter: the line is done. Live mode already typed it; send mode sends
+        // the box first. Then the box empties (nothing deleted on the PC), so
+        // old lines don't pile up on the phone's screen.
+        function pressEnter() {
+            if (mode === 'live') {
+                flushLive();
+                send({ type: 'key', key: 'enter' });
+                textarea.value = '';
+                mirror = '';
+                return;
+            }
+            const text = textarea.value;
+            if (text.length > 0 && !send({ type: 'text', text: text })) return;  // offline: keep the draft
+            if (!send({ type: 'key', key: 'enter' })) return;
+            textarea.value = '';
+            sent = '';
+        }
+
+        // The phone keyboard's own Enter, with the cursor at the end of the
+        // box: same as the Enter key above. Inside the text it still makes a
+        // new line there. (Some keyboards send keydown, others beforeinput.)
+        function enterAtEnd() {
+            return textarea.selectionStart === textarea.value.length;
+        }
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || e.isComposing || e.shiftKey || !enterAtEnd()) return;
+            e.preventDefault();
+            pressEnter();
+        });
+        textarea.addEventListener('beforeinput', (e) => {
+            if (e.inputType !== 'insertLineBreak' && e.inputType !== 'insertParagraph') return;
+            if (!enterAtEnd()) return;
+            e.preventDefault();
+            pressEnter();
+        });
+
         document.querySelectorAll('.tool[data-key]').forEach(btn => {
             btn.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 const key = btn.dataset.key;
 
-                if (mode === 'live') {
+                if (key === 'enter') {
+                    pressEnter();
+                } else if (mode === 'live') {
                     flushLive();
                     send({ type: 'key', key: key });
                     // The text is the PC's now: clear mirror after sending
