@@ -1,5 +1,5 @@
 <#
-Install, update or uninstall EskaBoard on Windows 10/11 for the current user.
+Install, update or uninstall Eskali Board on Windows 10/11 for the current user.
 
   powershell -ExecutionPolicy Bypass -File .\install.ps1              install or update, then start it
   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Uninstall   remove shortcuts, settings, venv and this folder
@@ -43,7 +43,7 @@ function Test-Under([string]$Path, [string]$Dir) {
 
 # ---- running copies ----
 
-# EskaBoard processes; with -Dir, only the ones started from that folder: the venv
+# Eskali Board processes; with -Dir, only the ones started from that folder: the venv
 # launcher (venv\Scripts\pythonw.exe) and the Python it starts, which has the
 # same "-m phonekb" command line.
 function Get-EskaBoardProcesses([string]$Dir) {
@@ -57,7 +57,7 @@ function Get-EskaBoardProcesses([string]$Dir) {
 function Stop-EskaBoard([string]$Dir) {
     $procs = @(Get-EskaBoardProcesses $Dir)
     if ($procs.Count -eq 0) { return }
-    Say 'Stopping the running EskaBoard'
+    Say 'Stopping the running Eskali Board'
     foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
     foreach ($p in $procs) { Wait-Process -Id $p.ProcessId -Timeout 10 -ErrorAction SilentlyContinue }
 }
@@ -102,7 +102,7 @@ function Find-Python {
 function Install-Python {
     $why = if ($script:OldPython) { "Python $($script:OldPython.Version) is too old" } else { 'Python was not found' }
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Fail "$why; EskaBoard needs Python $MinPython or newer.
+        Fail "$why; Eskali Board needs Python $MinPython or newer.
     Install it from $PythonOrg
     (tick 'Add python.exe to PATH' in the installer), then run this again."
     }
@@ -151,7 +151,7 @@ function Show-NetworkWarnings([string]$BasePython) {
         Write-Host "    Wi-Fi, make it Private:"
         Write-Host "      Settings > Network & internet > Wi-Fi (or Ethernet) > your network >"
         Write-Host "      Network profile type > Private"
-        Write-Host "    EskaBoard does not change the network type or the firewall for you."
+        Write-Host "    Eskali Board does not change the network type or the firewall for you."
     }
 
     # Inbound block rules for this Python on Private networks: usually "Cancel"
@@ -193,7 +193,7 @@ function Uninstall-EskaBoard {
     $profileDir = [Environment]::GetFolderPath('UserProfile').TrimEnd('\')
     if (-not (Test-Path (Join-Path $Root 'phonekb\__main__.py')) -or $Root.TrimEnd('\') -eq $profileDir -or
         $Root.TrimEnd('\') -eq ([IO.Path]::GetPathRoot($Root)).TrimEnd('\')) {
-        Fail "$Root does not look like an EskaBoard folder; not removing it."
+        Fail "$Root does not look like an Eskali Board folder; not removing it."
     }
 
     Stop-EskaBoard $Root
@@ -205,7 +205,7 @@ function Uninstall-EskaBoard {
             Remove-Item -LiteralPath $link -Force
             $removed += "shortcut   $link"
         } else {
-            Say "Keeping $link : it opens an EskaBoard in another folder ($target)."
+            Say "Keeping $link : it opens an Eskali Board in another folder ($target)."
         }
     }
     if ((Test-Path -LiteralPath $ConfigDir) -and (Remove-Tree $ConfigDir)) {
@@ -264,7 +264,7 @@ function Install-EskaBoard {
         Fail 'the venv cannot import the Python packages. See the messages above.'
     }
 
-    Say 'Adding EskaBoard to the Start menu and the desktop'
+    Say 'Adding Eskali Board to the Start menu and the desktop'
     New-Shortcut $StartMenuLink
     New-Shortcut $DesktopLink
 
@@ -273,11 +273,11 @@ function Install-EskaBoard {
     # Only one copy runs at a time; starting this one would show the other's page
     $others = @(Get-EskaBoardProcesses | Where-Object { -not (Test-Under $_.ExecutablePath $Root) })
     if ($others.Count) {
-        Write-Host '    Note: another EskaBoard is already running. Stop it (red button on its page),'
-        Write-Host '    then open EskaBoard from the Start menu.'
+        Write-Host '    Note: another Eskali Board is already running. Stop it (red button on its page),'
+        Write-Host '    then open Eskali Board from the Start menu.'
     }
 
-    Say 'Starting EskaBoard: its page opens in your browser'
+    Say 'Starting Eskali Board: its page opens in your browser'
     Start-Process -FilePath $VenvPythonw -ArgumentList '-m', 'phonekb', '--gui' -WorkingDirectory $Root
     Write-Host '    The first time, Windows Firewall may ask about Python: tick Private networks'
     Write-Host '    and click Allow, or the phone cannot connect.'

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# One-line install / update of EskaBoard on Ubuntu (GNOME on Wayland):
+# One-line install / update of Eskali Board on Ubuntu (GNOME on Wayland):
 #   curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash
 #   wget -qO- https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash
-# Installs to ~/EskaBoard (or $ESKABOARD_DIR) and adds EskaBoard to the apps menu.
+# Installs to ~/EskaBoard (or $ESKABOARD_DIR) and adds Eskali Board to the apps menu.
 # Run it again to update. Never runs sudo. To uninstall, add "-s -- --uninstall":
 #   curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash -s -- --uninstall
 #   wget -qO- https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash -s -- --uninstall
@@ -17,7 +17,7 @@ MIN_PY="3.8"
 say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
-# PIDs of running EskaBoard copies; with a folder, only the ones started from it
+# PIDs of running Eskali Board copies; with a folder, only the ones started from it
 # (menu launches run "<folder>/venv/bin/python3", terminal ones have it as cwd).
 eskaboard_pids() {
   local dir="${1:-}" pid arg0 cwd
@@ -46,7 +46,7 @@ stop_copies() {
 }
 
 # GNOME Settings has no page for Remote Desktop grants, so remove the ones the
-# portal filed under EskaBoard's menu entries. Prints how many were removed.
+# portal filed under Eskali Board's menu entries. Prints how many were removed.
 revoke_permission() {
   python3 - <<'EOF' 2>/dev/null || echo "?"
 from gi.repository import Gio, GLib
@@ -79,12 +79,12 @@ uninstall() {
   dir="$(readlink -f "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")"
   [[ -n "$dir" && "$dir" != "/" && "$dir" != "$(readlink -f "$HOME")" ]] || fail "refusing to remove $INSTALL_DIR."
   if [[ -e "$dir" && ! ( -f "$dir/phonekb/__main__.py" && -f "$dir/install.sh" ) ]]; then
-    fail "$dir does not look like EskaBoard; not removing it."
+    fail "$dir does not look like Eskali Board; not removing it."
   fi
 
   mapfile -t pids < <(eskaboard_pids "$dir")
   if ((${#pids[@]})); then
-    say "Stopping EskaBoard"
+    say "Stopping Eskali Board"
     stop_copies "${pids[@]}"
   fi
 
@@ -97,7 +97,7 @@ uninstall() {
       "$DATA_HOME/icons/hicolor/scalable/apps/eskaboard.svg"
     update-desktop-database "$DATA_HOME/applications" >/dev/null 2>&1 || true
   elif [[ -f "$entry" ]]; then
-    say "Keeping the apps-menu entry: it belongs to an EskaBoard in another folder."
+    say "Keeping the apps-menu entry: it belongs to an Eskali Board in another folder."
   fi
 
   if [[ -e "$dir" ]]; then
@@ -111,8 +111,8 @@ uninstall() {
   rm -rf -- "$CONFIG_DIR"
   revoked="$(revoke_permission)"
 
-  say "EskaBoard is uninstalled."
-  echo "    Removed $CONFIG_DIR (the token that let EskaBoard type without asking)."
+  say "Eskali Board is uninstalled."
+  echo "    Removed $CONFIG_DIR (the token that let Eskali Board type without asking)."
   if [[ "$revoked" == "?" ]]; then
     echo "    Could not reach the portal permission store; without the token the old grant cannot be used anyway."
   else
@@ -138,7 +138,7 @@ main() {
     sudo apt install ${missing[*]}"
   fi
   python3 -c "import sys; sys.exit(sys.version_info < (${MIN_PY/./,}))" \
-    || fail "EskaBoard needs Python $MIN_PY or newer; found $(python3 -V 2>&1)."
+    || fail "Eskali Board needs Python $MIN_PY or newer; found $(python3 -V 2>&1)."
 
   local dir pid pids mine others
   if [[ -d "$INSTALL_DIR/.git" ]]; then
@@ -152,7 +152,7 @@ main() {
       # Stop a copy running from this folder so it does not keep running the old code
       mapfile -t pids < <(eskaboard_pids "$dir")
       if ((${#pids[@]})); then
-        say "Stopping the running EskaBoard to update it"
+        say "Stopping the running Eskali Board to update it"
         stop_copies "${pids[@]}"
       fi
       say "Updating $INSTALL_DIR"
@@ -162,13 +162,13 @@ main() {
   elif [[ -e "$INSTALL_DIR" ]]; then
     fail "$INSTALL_DIR exists but is not a git checkout. Move it away (or set ESKABOARD_DIR) and run this again."
   else
-    say "Downloading EskaBoard to $INSTALL_DIR"
+    say "Downloading Eskali Board to $INSTALL_DIR"
     GIT_TERMINAL_PROMPT=0 git clone --quiet --depth 1 "$REPO_URL" "$INSTALL_DIR" \
       || fail "could not download $REPO_URL."
     dir="$(readlink -f "$INSTALL_DIR")"
   fi
 
-  say "Installing EskaBoard"
+  say "Installing Eskali Board"
   bash "$INSTALL_DIR/install.sh" </dev/null
 
   # Only one copy can run at a time; a menu launch would just show the other one
@@ -178,11 +178,11 @@ main() {
     [[ " ${mine[*]} " == *" $pid "* ]] || others+=("$pid")
   done
   if ((${#others[@]})); then
-    echo "    Note: EskaBoard is already running from $(readlink -f "/proc/${others[0]}/cwd")."
+    echo "    Note: Eskali Board is already running from $(readlink -f "/proc/${others[0]}/cwd")."
     echo "    Close it (the إيقاف button) before opening this one."
   fi
 
-  say "Done. Open EskaBoard from the apps menu."
+  say "Done. Open Eskali Board from the apps menu."
   echo "    Update it:    run the same install command again."
   echo "    Uninstall it: run it again with  bash -s -- --uninstall  in place of  bash"
 }

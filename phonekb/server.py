@@ -299,7 +299,7 @@ class Server:
             try:
                 proc = await asyncio.create_subprocess_exec(
                     "notify-send", "--app-name=EskaBoard", f"--icon={ICON}",
-                    "EskaBoard", f"الهاتف متصل ({ip})",
+                    "Eskali Board", f"الهاتف متصل ({ip})",
                     stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
                 _, err = await proc.communicate()
                 if proc.returncode:

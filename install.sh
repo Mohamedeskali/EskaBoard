@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install (or remove) the EskaBoard apps-menu entry for the current user.
+# Install (or remove) the Eskali Board apps-menu entry for the current user.
 #
 #   ./install.sh              check system packages, set up the venv, install icon and menu entry
 #   ./install.sh --uninstall  remove the icon and menu entry (the project and venv stay)
@@ -41,7 +41,7 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     rm -f "$DESKTOP_FILE" "$ICON_PNG" "$ICON_SVG"
     remove_old_entry
     refresh_menu
-    echo "EskaBoard removed from the apps menu."
+    echo "Eskali Board removed from the apps menu."
     echo "The project folder, its venv and ~/.config/phonekb were left in place."
     exit 0
 elif [[ $# -gt 0 ]]; then
@@ -59,11 +59,11 @@ fi
 # Typing goes through the GNOME Remote Desktop portal, which is only tested on Wayland
 case "${XDG_SESSION_TYPE:-}" in
     wayland) ;;
-    x11) warn "this is an X11 session. EskaBoard is made for GNOME on Wayland; typing may not work." ;;
-    *) warn "could not tell the session type (XDG_SESSION_TYPE is empty). EskaBoard needs GNOME on Wayland." ;;
+    x11) warn "this is an X11 session. Eskali Board is made for GNOME on Wayland; typing may not work." ;;
+    *) warn "could not tell the session type (XDG_SESSION_TYPE is empty). Eskali Board needs GNOME on Wayland." ;;
 esac
 if [[ -z "${XDG_CURRENT_DESKTOP:-}" ]]; then
-    warn "could not tell the desktop (XDG_CURRENT_DESKTOP is empty). EskaBoard needs GNOME."
+    warn "could not tell the desktop (XDG_CURRENT_DESKTOP is empty). Eskali Board needs GNOME."
 elif [[ "$XDG_CURRENT_DESKTOP" != *GNOME* ]]; then
     warn "the desktop is $XDG_CURRENT_DESKTOP, not GNOME. Typing on the PC will probably not work."
 fi
@@ -109,7 +109,7 @@ mkdir -p "$APPS_DIR"
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
-Name=EskaBoard
+Name=Eskali Board
 GenericName=Phone Keyboard
 GenericName[ar]=لوحة الهاتف
 Comment=Use your phone as a keyboard for this PC
@@ -128,4 +128,4 @@ echo "Installed launcher: $DESKTOP_FILE"
 
 remove_old_entry
 refresh_menu
-echo "EskaBoard is in the apps menu."
+echo "Eskali Board is in the apps menu."

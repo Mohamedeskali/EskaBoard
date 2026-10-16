@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
-    <title>EskaBoard</title>
+    <title>Eskali Board</title>
     <link rel="icon" href="/icon.png">
-    <!-- The EskaBoard window on Windows (phonekb/webgui.py); looks like the GTK one (gui.py) -->
+    <!-- The Eskali Board window on Windows (phonekb/webgui.py); looks like the GTK one (gui.py) -->
     <style>
         :root {
             --bg: #fafafa;
@@ -105,7 +105,7 @@
 </head>
 <body>
     <main class="window">
-        <div class="title"><img src="/icon.png" alt=""> EskaBoard</div>
+        <div class="title"><img src="/icon.png" alt=""> Eskali Board</div>
         <div class="qr"><img id="qr" alt="رمز QR للهاتف" hidden></div>
         <div class="conn" id="conn">جارٍ التحميل…</div>
         <div class="dim" id="input"></div>
@@ -116,12 +116,12 @@
         </div>
         <div class="buttons">
             <button type="button" id="new" title="رمز وصلاحية جديدان؛ يُفصل الهاتف المتصل بالرمز القديم" disabled>QR جديد</button>
-            <button type="button" id="copy" title="رابط الهاتف، لتطبيق EskaBoard على Android (فيه مفتاح التشفير: لا تشاركه)" disabled>نسخ الرابط</button>
+            <button type="button" id="copy" title="رابط الهاتف، لتطبيق Eskali Board على Android (فيه مفتاح التشفير: لا تشاركه)" disabled>نسخ الرابط</button>
             <button type="button" id="stop" class="destructive" disabled>إيقاف</button>
         </div>
         <div class="note" id="note">
-            يمكنك إغلاق هذه الصفحة وسيبقى EskaBoard يعمل.
-            لإظهارها مجددًا افتح EskaBoard من قائمة ابدأ.
+            يمكنك إغلاق هذه الصفحة وسيبقى Eskali Board يعمل.
+            لإظهارها مجددًا افتح Eskali Board من قائمة ابدأ.
         </div>
     </main>
 
@@ -152,7 +152,7 @@
             stopBtn.disabled = state.stopping;
             link = state.link;
             copyBtn.disabled = !link;
-            document.title = state.connected ? '● EskaBoard' : 'EskaBoard';
+            document.title = state.connected ? '● Eskali Board' : 'Eskali Board';
             if (state.qr !== qrVersion) {
                 qrVersion = state.qr;
                 if (qrVersion) qr.src = '/qr.png?' + q + '&v=' + qrVersion;
@@ -162,9 +162,9 @@
 
         function showStopped() {
             ended = true;
-            conn.textContent = 'EskaBoard متوقف';
+            conn.textContent = 'Eskali Board متوقف';
             conn.classList.remove('connected');
-            input.textContent = 'يمكنك إغلاق هذه الصفحة. لتشغيله من جديد افتح EskaBoard من قائمة ابدأ.';
+            input.textContent = 'يمكنك إغلاق هذه الصفحة. لتشغيله من جديد افتح Eskali Board من قائمة ابدأ.';
             hint.hidden = true;
             note.hidden = true;
             qr.hidden = true;
@@ -173,7 +173,7 @@
             stopBtn.disabled = true;
             link = '';
             copyBtn.disabled = true;
-            document.title = 'EskaBoard (متوقف)';
+            document.title = 'Eskali Board (متوقف)';
         }
 
         async function call(method, path) {
