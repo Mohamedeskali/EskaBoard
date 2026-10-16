@@ -172,6 +172,17 @@ class BoardActivity : BaseActivity() {
             handler.post { floating.toggle(which) }
         }
 
+        /**
+         * The page's saved texts ("history") and unsent box ("draft"), kept by
+         * the app: the page's own storage belongs to the PC's address, which
+         * can change from one day to the next.
+         */
+        @JavascriptInterface
+        fun storeGet(name: String): String? = PageStore.get(this@BoardActivity, name)
+
+        @JavascriptInterface
+        fun storeSet(name: String, value: String) = PageStore.set(this@BoardActivity, name, value)
+
         /** True while a floating button runs: the page keeps its connection checked in the background. */
         @JavascriptInterface
         fun keepAlive(): Boolean = BoardBridge.keepAlive
