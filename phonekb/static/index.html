@@ -199,6 +199,45 @@
         .send-btn:active { transform: scale(0.96); }
         .send-btn svg.i { width: 18px; height: 18px; }
 
+        /* ---- History: texts that left the box ---- */
+        .sheet {
+            position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; gap: 10px;
+            padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+                     max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+            background: var(--bg);
+        }
+        .sheet[hidden] { display: none; }
+        .sheet-head { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .sheet-head h2 { flex: 1; min-width: 0; font-size: 17px; font-weight: 700; }
+        .icon-btn.danger { color: var(--bad); }
+        .history-list {
+            flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+            list-style: none; overscroll-behavior: contain;
+        }
+        .history-empty { margin: auto; color: var(--muted); font-size: 14px; text-align: center; }
+        .entry {
+            display: flex; flex-direction: column; gap: 8px; padding: 12px; flex-shrink: 0;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+        .entry-text {
+            font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; text-align: start;
+            display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden;
+        }
+        .entry-text.open { display: block; }
+        .entry-foot { display: flex; align-items: center; gap: 6px; }
+        .entry-time { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; }
+        .entry-btn {
+            display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 10px; border-radius: 10px;
+            background: var(--raised); border: 1px solid var(--border); font-size: 13px; font-weight: 600;
+        }
+        .entry-btn svg.i { width: 16px; height: 16px; }
+        .entry-btn:active { background: var(--raised-down); }
+        .entry-btn.send { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+        .entry-btn.del { color: var(--bad); padding: 0 8px; }
+        .entry-btn.failed { animation: failed 0.6s ease-out; }
+        @keyframes failed { 0% { background: var(--bad); color: #fff; } }
+
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation: none !important; transition: none !important; }
         }
@@ -218,6 +257,10 @@
         <symbol id="i-paste" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14h6"/><path d="M12 11v6"/></symbol>
         <symbol id="i-file" viewBox="0 0 24 24"><path d="m21.4 11.1-8.6 8.6a5.7 5.7 0 0 1-8-8l8.6-8.6a3.8 3.8 0 0 1 5.3 5.3l-8.6 8.6a1.9 1.9 0 0 1-2.7-2.7l8-7.9"/></symbol>
         <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
         <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
     </svg>
 
@@ -244,6 +287,9 @@
         </label>
         <button type="button" class="icon-btn" id="new-btn" data-i18n-title="new">
             <svg class="i" aria-hidden="true"><use href="#i-new"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="history-btn" data-tool="history" data-i18n-title="history">
+            <svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>
         </button>
         <!-- Android app only: its floating buttons (on/off) and its settings screen -->
         <button type="button" class="icon-btn" id="float-shot" data-tool="float_shot" data-float="shot"
@@ -299,6 +345,20 @@
         </div>
     </div>
 
+    <!-- History: the texts that left the box, newest first -->
+    <section class="sheet" id="history-panel" hidden>
+        <div class="sheet-head">
+            <h2 data-i18n="history"></h2>
+            <button type="button" class="icon-btn danger" id="history-clear" data-i18n-title="clearAll">
+                <svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>
+            </button>
+            <button type="button" class="icon-btn" id="history-close" data-i18n-title="close">
+                <svg class="i" aria-hidden="true"><use href="#i-close"/></svg>
+            </button>
+        </div>
+        <ul class="history-list" id="history-list"></ul>
+    </section>
+
     <script src="nacl-fast.min.js"></script>
     <script>
         // ---- Languages ----
@@ -323,6 +383,9 @@
                 replaced: 'اتصل هاتف آخر — المس هنا للعودة',
                 newQr: 'تم إنشاء رمز QR جديد — امسحه',
                 expired: 'انتهت صلاحية هذا الرمز — امسح رمز QR الجديد',
+                history: 'السجل', close: 'إغلاق', clearAll: 'امسح السجل كله',
+                clearAllAsk: 'حذف كل النصوص المحفوظة؟', historyEmpty: 'لا توجد نصوص محفوظة بعد.\nكل نص يخرج من الخانة يُحفظ هنا.',
+                restore: 'استرجاع', resend: 'إرسال', remove: 'حذف',
             },
             en: {
                 connected: 'Connected', disconnected: 'Offline', mode: 'Mode',
@@ -344,6 +407,9 @@
                 replaced: 'Another phone connected — tap here to take over',
                 newQr: 'A new QR code was created — scan it',
                 expired: 'This QR code has expired — scan the new one',
+                history: 'History', close: 'Close', clearAll: 'Clear all history',
+                clearAllAsk: 'Delete all saved texts?', historyEmpty: 'No saved texts yet.\nEvery text that leaves the box is kept here.',
+                restore: 'Restore', resend: 'Send', remove: 'Delete',
             },
             fr: {
                 connected: 'Connecté', disconnected: 'Hors ligne', mode: 'Mode',
@@ -365,6 +431,9 @@
                 replaced: "Un autre téléphone s'est connecté — touchez ici pour reprendre",
                 newQr: 'Un nouveau code QR a été créé — scannez-le',
                 expired: 'Ce code QR a expiré — scannez le nouveau',
+                history: 'Historique', close: 'Fermer', clearAll: "Vider l'historique",
+                clearAllAsk: 'Supprimer tous les textes enregistrés ?', historyEmpty: 'Aucun texte enregistré.\nChaque texte qui quitte la zone est gardé ici.',
+                restore: 'Reprendre', resend: 'Envoyer', remove: 'Supprimer',
             },
         };
 
@@ -436,6 +505,7 @@
             updateStatusText(isConnected);
             showScreens(screenCount);
             if (noticeKey) noticeText.textContent = t(noticeKey);
+            if (typeof historyPanel !== 'undefined' && !historyPanel.hidden) renderHistory();
         }
 
         langSelect.addEventListener('change', () => {
@@ -627,7 +697,7 @@
                 reconnectDelay = 1000;
                 // The PC's cursor may have moved since: start again from an
                 // empty box in live mode; keep an unsent draft in send mode
-                if (mode === 'live') textarea.value = '';
+                if (mode === 'live') clearBox();
                 mirror = '';
                 sent = '';
                 seq = 0;
@@ -786,7 +856,7 @@
             }
             // A new line at the end (e.g. dictated) was typed as Enter: start afresh
             if (current.endsWith('\n') && enterAtEnd()) {
-                textarea.value = '';
+                clearBox();
                 mirror = '';
             }
         }
@@ -796,7 +866,7 @@
         sendBtn.addEventListener('click', () => {
             const text = textarea.value;
             if (text.length > 0 && send({ type: 'text', text: text })) {
-                textarea.value = '';
+                clearBox();
                 sent += text;
                 if (autoEnter.checked) {
                     send({ type: 'key', key: 'enter' });
@@ -808,7 +878,7 @@
 
         newBtn.addEventListener('pointerdown', (e) => e.preventDefault());
         newBtn.addEventListener('click', () => {
-            textarea.value = '';
+            clearBox();
             mirror = '';
             sent = '';
             textarea.focus();
@@ -818,7 +888,7 @@
         // which may have moved the cursor), and empty the box
         eraseBtn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
-            textarea.value = '';
+            clearBox();
             if (mode === 'live') {
                 flushLive();  // sends the deletion of the mirror
             } else {
@@ -879,14 +949,14 @@
             if (mode === 'live') {
                 flushLive();
                 send({ type: 'key', key: 'enter' });
-                textarea.value = '';
+                clearBox();
                 mirror = '';
                 return;
             }
             const text = textarea.value;
             if (text.length > 0 && !send({ type: 'text', text: text })) return;  // offline: keep the draft
             if (!send({ type: 'key', key: 'enter' })) return;
-            textarea.value = '';
+            clearBox();
             sent = '';
         }
 
@@ -919,7 +989,7 @@
                     flushLive();
                     send({ type: 'key', key: key });
                     // The text is the PC's now: clear mirror after sending
-                    textarea.value = '';
+                    clearBox();
                     mirror = '';
                 } else {
                     send({ type: 'key', key: key });
@@ -1005,7 +1075,7 @@
         // own connection: like the page's Enter key, the text so far is the PC's
         window.eskaboardKeySent = function () {
             if (mode === 'live') {
-                textarea.value = '';
+                clearBox();
                 mirror = '';
             } else {
                 sent = '';
@@ -1128,6 +1198,211 @@
             settingsBtn.hidden = false;
             settingsBtn.addEventListener('click', () => app.openSettings());
         }
+
+        // ---- History: every text that leaves the box is kept on the phone ----
+        // (Enter, جديد, the keys, the app's floating Enter…), plus a draft of
+        // the box while typing, so a closed page loses nothing. In the Android
+        // app it lives in the app (the page's own storage belongs to the PC's
+        // address, which can change); in a browser, in the browser.
+        const HISTORY_MAX = 50;          // texts kept, the oldest go first
+        const HISTORY_TEXT_MAX = 20000;  // characters per text
+        const HISTORY_MIN = 3;           // shorter texts are not kept
+        const DRAFT_PAUSE = 1000;
+        const historyBtn = document.getElementById('history-btn');
+        const historyPanel = document.getElementById('history-panel');
+        const historyList = document.getElementById('history-list');
+        const appStore = window.EskaBoardApp && window.EskaBoardApp.storeGet ? window.EskaBoardApp : null;
+        let draftTimer = null;
+
+        function keepGet(name) {
+            if (appStore) {
+                try { return appStore.storeGet(name); } catch (e) { /* fall back */ }
+            }
+            return load(name);
+        }
+
+        function keepSet(name, value) {
+            if (appStore) {
+                try { appStore.storeSet(name, value); return; } catch (e) { /* fall back */ }
+            }
+            store(name, value);
+        }
+
+        function readSaved() {
+            try {
+                const list = JSON.parse(keepGet('history') || '[]');
+                if (!Array.isArray(list)) return [];
+                return list.filter(e => e && typeof e.text === 'string' && typeof e.at === 'number')
+                           .slice(0, HISTORY_MAX);
+            } catch (e) {
+                return [];
+            }
+        }
+
+        let saved = readSaved();  // newest first: {text, at}
+
+        function writeSaved() {
+            keepSet('history', JSON.stringify(saved));
+        }
+
+        // Keep a text (once: the same text again moves to the top)
+        function remember(text) {
+            if (text.trim().length < HISTORY_MIN) return;
+            if (text.length > HISTORY_TEXT_MAX) text = Array.from(text).slice(0, HISTORY_TEXT_MAX).join('');
+            saved = saved.filter(e => e.text !== text);
+            saved.unshift({ text: text, at: Date.now() });
+            if (saved.length > HISTORY_MAX) saved.length = HISTORY_MAX;
+            writeSaved();
+            if (!historyPanel.hidden) renderHistory();
+        }
+
+        // Every way the box empties goes through here
+        function clearBox() {
+            remember(textarea.value);
+            textarea.value = '';
+            saveDraft();
+        }
+
+        function saveDraft() {
+            clearTimeout(draftTimer);
+            draftTimer = null;
+            keepSet('draft', textarea.value);
+        }
+
+        textarea.addEventListener('input', () => {
+            clearTimeout(draftTimer);
+            draftTimer = setTimeout(saveDraft, DRAFT_PAUSE);
+        });
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && draftTimer) saveDraft();
+        });
+        window.addEventListener('pagehide', () => { if (draftTimer) saveDraft(); });
+
+        const TIME_LOCALE = { ar: 'ar-MA', en: 'en-GB', fr: 'fr-FR' };
+        function timeLabel(at) {
+            try {
+                return new Date(at).toLocaleString(TIME_LOCALE[lang], { dateStyle: 'short', timeStyle: 'short' });
+            } catch (e) {
+                return new Date(at).toLocaleString();
+            }
+        }
+
+        function entryButton(cls, icon, label, onClick) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'entry-btn ' + cls;
+            const flip = icon === 'i-send' ? ' flip-rtl' : '';
+            btn.innerHTML = `<svg class="i${flip}" aria-hidden="true"><use href="#${icon}"/></svg><span></span>`;
+            btn.querySelector('span').textContent = label;
+            btn.title = label;
+            btn.addEventListener('click', onClick);
+            return btn;
+        }
+
+        function renderHistory() {
+            historyList.textContent = '';
+            if (saved.length === 0) {
+                const empty = document.createElement('li');
+                empty.className = 'history-empty';
+                empty.style.whiteSpace = 'pre-line';
+                empty.textContent = t('historyEmpty');
+                historyList.appendChild(empty);
+                return;
+            }
+            saved.forEach(entry => {
+                const li = document.createElement('li');
+                li.className = 'entry';
+                const text = document.createElement('div');
+                text.className = 'entry-text';
+                text.dir = 'auto';
+                text.textContent = entry.text;
+                text.addEventListener('click', () => text.classList.toggle('open'));
+                const foot = document.createElement('div');
+                foot.className = 'entry-foot';
+                const time = document.createElement('span');
+                time.className = 'entry-time';
+                time.textContent = timeLabel(entry.at);
+                const del = entryButton('del', 'i-trash', t('remove'), () => {
+                    saved = saved.filter(e => e !== entry);
+                    writeSaved();
+                    renderHistory();
+                });
+                del.querySelector('span').remove();
+                foot.append(time, del,
+                    entryButton('', 'i-edit', t('restore'), () => restoreSaved(entry.text)),
+                    entryButton('send', 'i-send', t('resend'), (e) => sendSaved(entry.text, e.currentTarget)));
+                li.append(text, foot);
+                historyList.appendChild(li);
+            });
+        }
+
+        function openHistory() {
+            if (draftTimer) saveDraft();
+            textarea.blur();  // the phone keyboard would cover the list
+            renderHistory();
+            historyPanel.hidden = false;
+            historyList.scrollTop = 0;
+        }
+
+        function closeHistory() {
+            historyPanel.hidden = true;
+            textarea.focus();
+        }
+
+        // Back in the box to finish or change it. In live mode the box is what
+        // the PC has, so the PC gets it too (a text already there is replaced).
+        function restoreSaved(text) {
+            if (textarea.value !== text) remember(textarea.value);
+            textarea.value = text;
+            if (mode === 'live') flushLive();
+            saveDraft();
+            closeHistory();
+            textarea.setSelectionRange(text.length, text.length);
+        }
+
+        // Straight to the PC, like the send button; the box is left as it is
+        // (in live mode its text is the PC's from now on, as after a key)
+        function sendSaved(text, btn) {
+            if (mode === 'live') flushLive();
+            if (!send({ type: 'text', text: text })) {
+                btn.classList.remove('failed');
+                void btn.offsetWidth;
+                btn.classList.add('failed');
+                return;
+            }
+            if (mode === 'live') {
+                clearBox();
+                mirror = '';
+            } else {
+                sent += text;
+                if (autoEnter.checked) {
+                    send({ type: 'key', key: 'enter' });
+                    sent = '';
+                }
+            }
+            remember(text);
+            if (navigator.vibrate) navigator.vibrate(15);
+            closeHistory();
+        }
+
+        historyBtn.addEventListener('click', openHistory);
+        document.getElementById('history-close').addEventListener('click', closeHistory);
+        document.getElementById('history-clear').addEventListener('click', () => {
+            if (saved.length === 0 || !confirm(t('clearAllAsk'))) return;
+            saved = [];
+            writeSaved();
+            renderHistory();
+        });
+
+        // A draft left by a closed page: kept in the history, and back in the
+        // box in send mode (in live mode the PC already has it)
+        (function restoreDraft() {
+            const draft = keepGet('draft') || '';
+            if (!draft) return;
+            remember(draft);
+            if (mode === 'send' && !textarea.value) textarea.value = draft;
+            else keepSet('draft', '');
+        })();
 
         // Adjust layout when keyboard opens/closes
         if (window.visualViewport) {
