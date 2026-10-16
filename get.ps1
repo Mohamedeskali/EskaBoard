@@ -1,5 +1,5 @@
 <#
-One-line install / update of EskaBoard on Windows 10/11, in PowerShell:
+One-line install / update of Eskali Board on Windows 10/11, in PowerShell:
   irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1 | iex
 Run it again to update. To uninstall:
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1))) -Uninstall
@@ -46,7 +46,7 @@ function Invoke-EskaBoardGet([switch]$Uninstall) {
         $ids = @($all | Where-Object { Test-Under $_.ExecutablePath $dir } | ForEach-Object { $_.ProcessId })
         $procs = @($all | Where-Object { $ids -contains $_.ProcessId -or $ids -contains $_.ParentProcessId })
         if ($procs.Count -eq 0) { return }
-        Say 'Stopping the running EskaBoard to update it'
+        Say 'Stopping the running Eskali Board to update it'
         foreach ($p in $procs) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
         foreach ($p in $procs) { Wait-Process -Id $p.ProcessId -Timeout 10 -ErrorAction SilentlyContinue }
     }
@@ -58,7 +58,7 @@ function Invoke-EskaBoardGet([switch]$Uninstall) {
             if ((Invoke-Installer '-Uninstall') -ne 0) { throw 'uninstalling failed; see the messages above.' }
             return
         }
-        Say "EskaBoard is not installed in $dir. Removing what is left of it"
+        Say "Eskali Board is not installed in $dir. Removing what is left of it"
         foreach ($folder in 'Programs', 'Desktop') {
             $base = [Environment]::GetFolderPath($folder)
             $link = if ($base) { Join-Path $base 'EskaBoard.lnk' } else { '' }
@@ -77,7 +77,7 @@ function Invoke-EskaBoardGet([switch]$Uninstall) {
     }
 
     if ((Test-Path -LiteralPath $dir) -and -not $isEskaBoard -and @(Get-ChildItem -LiteralPath $dir -Force).Count) {
-        throw "$dir exists but is not EskaBoard. Move it away (or set `$env:ESKABOARD_DIR) and run this again."
+        throw "$dir exists but is not Eskali Board. Move it away (or set `$env:ESKABOARD_DIR) and run this again."
     }
 
     # Download and unpack first: a failed download leaves the installed copy running
@@ -104,18 +104,18 @@ function Invoke-EskaBoardGet([switch]$Uninstall) {
         $src = @(@(Get-Item -LiteralPath $unpacked) + @(Get-ChildItem -LiteralPath $unpacked -Directory)) |
             Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'phonekb\__main__.py') } |
             Select-Object -First 1
-        if (-not $src) { throw "the ZIP does not contain EskaBoard (no phonekb\__main__.py)." }
+        if (-not $src) { throw "the ZIP does not contain Eskali Board (no phonekb\__main__.py)." }
 
         $old = Get-Version $dir
         $new = Get-Version $src.FullName
         if ($old) {
             Stop-EskaBoard
-            if ($old -eq $new) { Say "Reinstalling EskaBoard $new in $dir (already the latest)" }
-            else { Say "Updating EskaBoard $old -> $new in $dir" }
+            if ($old -eq $new) { Say "Reinstalling Eskali Board $new in $dir (already the latest)" }
+            else { Say "Updating Eskali Board $old -> $new in $dir" }
             # Replace the program files; keep the venv so packages are not downloaded again
             Get-ChildItem -LiteralPath $dir -Force | Where-Object { $_.Name -ne 'venv' } | Remove-Item -Recurse -Force
         } else {
-            Say "Installing EskaBoard $new in $dir"
+            Say "Installing Eskali Board $new in $dir"
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
         Get-ChildItem -LiteralPath $src.FullName -Force | Copy-Item -Destination $dir -Recurse -Force

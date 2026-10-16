@@ -1,4 +1,4 @@
-# EskaBoard (لوحة الهاتف)
+# Eskali Board (لوحة الهاتف)
 
 Use your phone as a keyboard for your PC. Scan a QR code, then type or dictate (Arabic or English) on the phone; the text appears in whatever window has focus on the PC.
 
@@ -9,7 +9,7 @@ Use your phone as a keyboard for your PC. Scan a QR code, then type or dictate (
 | Ubuntu 24.04 or newer | GNOME on Wayland |
 | Windows 10 and 11 | **New in 0.2.0** |
 
-On both, the phone only needs a web browser, and it must be on the same Wi-Fi network as the PC. On Android you can also use the [EskaBoard app](#android-app).
+On both, the phone only needs a web browser, and it must be on the same Wi-Fi network as the PC. On Android you can also use the [Eskali Board app](#android-app).
 
 ## Ubuntu
 
@@ -19,7 +19,7 @@ On both, the phone only needs a web browser, and it must be on the same Wi-Fi ne
 curl -fsSL https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.sh | bash
 ```
 
-This installs EskaBoard in `~/EskaBoard` and adds it to the apps menu. It never runs `sudo`: if system packages are missing, it prints the `apt` command to run first. The first time EskaBoard starts, GNOME asks for Remote Desktop permission: click **Share**.
+This installs Eskali Board in `~/EskaBoard` and adds it to the apps menu. It never runs `sudo`: if system packages are missing, it prints the `apt` command to run first. The first time Eskali Board starts, GNOME asks for Remote Desktop permission: click **Share**.
 
 ### Update
 
@@ -47,7 +47,7 @@ Open **PowerShell** (Start menu, type `PowerShell`) and run:
 irm https://raw.githubusercontent.com/Mohamedeskali/EskaBoard/main/get.ps1 | iex
 ```
 
-This installs EskaBoard in `%LOCALAPPDATA%\EskaBoard`, installs Python with `winget` if it is missing, adds EskaBoard to the Start menu and the desktop, and starts it. EskaBoard's page opens in your browser with the QR code. No administrator rights are needed.
+This installs Eskali Board in `%LOCALAPPDATA%\EskaBoard`, installs Python with `winget` if it is missing, adds Eskali Board to the Start menu and the desktop, and starts it. Eskali Board's page opens in your browser with the QR code. No administrator rights are needed.
 
 The first time, Windows Firewall asks whether Python may use the network: tick **Private networks** and click **Allow**. If your Wi-Fi is set to **Public**, the installer tells you; see [Troubleshooting](#windows-1).
 
@@ -69,10 +69,10 @@ This removes `%LOCALAPPDATA%\EskaBoard` (with its venv), the Start menu and desk
 
 ## Using it
 
-Open EskaBoard from the apps menu (Ubuntu) or the Start menu (Windows) and scan the QR code with the phone's camera.
+Open Eskali Board from the apps menu (Ubuntu) or the Start menu (Windows) and scan the QR code with the phone's camera.
 
 - Ubuntu shows a window; Windows shows a page in your browser. Both have the QR code, the connection status, **QR جديد** (new QR: the phone using the old one is disconnected), **نسخ الرابط** (copy link: the QR's link, for the [Android app](#android-app)) and **إيقاف** (stop).
-- On Windows you can close the page: EskaBoard keeps running. Open EskaBoard from the Start menu to see the page again.
+- On Windows you can close the page: Eskali Board keeps running. Open Eskali Board from the Start menu to see the page again.
 
 On the phone:
 - **🌐**: the page's language: العربية, English or Français. It follows the phone's language until you pick one.
@@ -88,28 +88,28 @@ On the phone:
 
 If your phone uses Gboard, you can write in one language and have the text arrive on the PC in another, with nothing extra to install:
 
-1. On the EskaBoard page, tap the text box so Gboard opens.
+1. On the Eskali Board page, tap the text box so Gboard opens.
 2. In Gboard's toolbar, tap **Translate** (open the **⋯** menu if it is not shown).
 3. Pick the two languages, for example **Arabic → English**.
-4. Type in Gboard's translate box: the translated text goes into the EskaBoard page and on to the PC, in **مباشر** or **إرسال** mode.
+4. Type in Gboard's translate box: the translated text goes into the Eskali Board page and on to the PC, in **مباشر** or **إرسال** mode.
 
 The translation is done by Gboard on the phone, so it depends on Gboard's own language support.
 
 ## Android app
 
-The EskaBoard app opens the same phone page, full screen, without the browser's address bar. It is optional: the phone's camera and browser do the same job.
+The Eskali Board app opens the same phone page, full screen, without the browser's address bar. It is optional: the phone's camera and browser do the same job.
 
 Install: download `EskaBoard.apk` from the [Releases](https://github.com/Mohamedeskali/EskaBoard/releases) page on the phone and open it. Android asks to allow installing apps from your browser (or file manager) the first time. It needs Android 7.0 or newer.
 
 Open the app and either:
 - **Scan the QR code**: the app's own scanner (it asks for the camera permission once), or
-- **Paste the link**: click **نسخ الرابط** on the PC, get the link to the phone (for example in a chat with yourself), and paste it in the app. You can also **Share** the link from a chat app to EskaBoard.
+- **Paste the link**: click **نسخ الرابط** on the PC, get the link to the phone (for example in a chat with yourself), and paste it in the app. You can also **Share** the link from a chat app to Eskali Board.
 
-The app remembers the last PC: **Reconnect** opens it again while EskaBoard keeps running there. If EskaBoard was restarted, **QR جديد** was pressed or no phone was connected for 30 minutes, the app says the code expired: scan the new one.
+The app remembers the last PC: **Reconnect** opens it again while Eskali Board keeps running there. If Eskali Board was restarted, **QR جديد** was pressed or no phone was connected for 30 minutes, the app says the code expired: scan the new one.
 
-The link holds the pairing token and the encryption key: anyone who has it and is on the same Wi-Fi can type on your PC until you press **QR جديد** or restart EskaBoard. Don't post it anywhere public. Windows' clipboard history (Win+V) keeps what you copy.
+The link holds the pairing token and the encryption key: anyone who has it and is on the same Wi-Fi can type on your PC until you press **QR جديد** or restart Eskali Board. Don't post it anywhere public. Windows' clipboard history (Win+V) keeps what you copy.
 
-Typing an IP address alone is not enough: the token and the key change every time EskaBoard starts, and the PC rejects the phone without them.
+Typing an IP address alone is not enough: the token and the key change every time Eskali Board starts, and the PC rejects the phone without them.
 
 ### Settings
 
@@ -146,7 +146,7 @@ From a folder, without the one-line command (for example a ZIP of the project):
 
 ```bash
 # Ubuntu
-./install.sh              # creates venv/ if missing, adds EskaBoard to the apps menu
+./install.sh              # creates venv/ if missing, adds Eskali Board to the apps menu
 ./install.sh --uninstall  # removes the menu entry and icon (keeps the folder and venv)
 ```
 
@@ -203,7 +203,7 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
   app/src/main/java/org/eskaboard/app/
     MainActivity.kt   start screen: scan, paste or share a link, reconnect to the last PC
     BoardActivity.kt  the phone page, full screen; stays on the PC's own address
-    BoardLink.kt      checks a link is an EskaBoard one (http://IP:PORT/?t=…#k=…)
+    BoardLink.kt      checks a link is an Eskali Board one (http://IP:PORT/?t=…#k=…)
     SettingsActivity.kt, AppSettings.kt  language, board buttons, floating button
     ShotService.kt    the floating screenshot button (foreground service, screen capture)
 ```
@@ -212,7 +212,7 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
 
 - Each run creates a random token (`?t=`) and a 32-byte key (`#k=`) in the QR link. The key never goes over the network. Every WebSocket message is encrypted (NaCl secretbox) with a session id and a counter, so plaintext, a wrong key and replayed messages are rejected. 5 bad tokens from one IP block it for 60 s.
 - A phone screenshot (Android app) is an `image` message like any other: encrypted, with the session id and counter. The PC accepts only PNG (up to 16 MB and 40 megapixels), decodes it and encodes it again before it saves it and puts it on the clipboard.
-- The phone stays paired while EskaBoard runs. When it comes back from another app or the lock screen, the page checks its connection (an encrypted ping) and reconnects by itself with the same link: each connection gets a new session id from the PC and its counter starts again, so nothing sent on an earlier connection is accepted. The PC also pings the phone every 20 s and drops one that stopped answering. The link expires, with a new QR on the PC, after 30 minutes with no phone connected (`--expire`).
+- The phone stays paired while Eskali Board runs. When it comes back from another app or the lock screen, the page checks its connection (an encrypted ping) and reconnects by itself with the same link: each connection gets a new session id from the PC and its counter starts again, so nothing sent on an earlier connection is accepted. The PC also pings the phone every 20 s and drops one that stopped answering. The link expires, with a new QR on the PC, after 30 minutes with no phone connected (`--expire`).
 - Ubuntu: typing goes through the GNOME Remote Desktop portal. Text is put on the clipboard through the portal and pasted with Ctrl+V; the program waits until the app has read it, and puts what you had copied (text or image) back 1 s after you stop typing. Special keys are sent as key presses. The permission token is stored in `~/.config/phonekb/restore_token` so the dialog appears only once.
 - Windows: text is typed as Unicode characters with `SendInput`, so Arabic works whatever keyboard layout is active, and the clipboard is not used (only screenshots are put on it). Special keys are sent as key presses.
 - Windows: the page with the QR code is served on `127.0.0.1` only, on a random port, and needs a random secret that is in the address the browser opens. It cannot be reached from the network, because the QR contains the key.
@@ -237,14 +237,14 @@ android/           the Android app (Kotlin): QR scanner, link field, the phone p
 
 ### Windows
 
-- **Firewall prompt.** The first time, Windows asks whether "Python" may use the network. Tick **Private networks** and click **Allow access** (a standard account needs an administrator password). If you clicked **Cancel**, the phone cannot connect: Start, type `Allow an app through Windows Firewall`, **Change settings**, tick **Private** for every **Python** entry, **OK**. The installer warns you when it finds such a blocking rule. EskaBoard never changes the firewall itself.
+- **Firewall prompt.** The first time, Windows asks whether "Python" may use the network. Tick **Private networks** and click **Allow access** (a standard account needs an administrator password). If you clicked **Cancel**, the phone cannot connect: Start, type `Allow an app through Windows Firewall`, **Change settings**, tick **Private** for every **Python** entry, **OK**. The installer warns you when it finds such a blocking rule. Eskali Board never changes the firewall itself.
 - **"Public" network blocks the phone.** Windows blocks incoming connections on networks set to Public, even after you allowed Python. If it is your home or office Wi-Fi, make it Private: **Settings > Network & internet > Wi-Fi** (or **Ethernet**) > your network > **Network profile type: Private**. Do this only for networks you trust. The installer warns you when the network is Public.
-- **Same Wi-Fi.** The phone must be on the same Wi-Fi as the PC, not on mobile data or a guest network (guest networks often keep devices apart). The address under the QR code (for example `192.168.1.20:8765`) should start like the phone's Wi-Fi address. A VPN on the PC can make EskaBoard pick the wrong address: turn it off, or start it with `--host` and the PC's Wi-Fi address.
+- **Same Wi-Fi.** The phone must be on the same Wi-Fi as the PC, not on mobile data or a guest network (guest networks often keep devices apart). The address under the QR code (for example `192.168.1.20:8765`) should start like the phone's Wi-Fi address. A VPN on the PC can make Eskali Board pick the wrong address: turn it off, or start it with `--host` and the PC's Wi-Fi address.
 - **"Running scripts is disabled on this system" (execution policy).** The one-line `irm ... | iex` command is not affected. For `install.ps1` from a ZIP, run it as shown above with `powershell -ExecutionPolicy Bypass -File .\install.ps1`: this allows it for that run only and changes no setting.
-- **SmartScreen / "this file came from the internet".** EskaBoard has no `.exe` of its own. If the browser warns about the ZIP, choose **Keep**. If Windows blocks the extracted scripts, right-click the ZIP, **Properties**, tick **Unblock**, then extract it again (or run `Unblock-File .\install.ps1`).
-- **The page was closed.** EskaBoard keeps running: open it from the Start menu to see the page again.
+- **SmartScreen / "this file came from the internet".** Eskali Board has no `.exe` of its own. If the browser warns about the ZIP, choose **Keep**. If Windows blocks the extracted scripts, right-click the ZIP, **Properties**, tick **Unblock**, then extract it again (or run `Unblock-File .\install.ps1`).
+- **The page was closed.** Eskali Board keeps running: open it from the Start menu to see the page again.
 - **Text doesn't appear.** Check the target window has focus and is not running as administrator. The log is in `%APPDATA%\EskaBoard\eskaboard.log`.
-- **"Port 8765 is in use".** Another EskaBoard, or another program, uses the port. Stop it, or start EskaBoard with `--port 8766`.
+- **"Port 8765 is in use".** Another Eskali Board, or another program, uses the port. Stop it, or start Eskali Board with `--port 8766`.
 
 ## License
 

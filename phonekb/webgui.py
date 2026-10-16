@@ -111,7 +111,7 @@ class StatusPage:
         e = task.exception()
         print(f"Server failed: {e}")
         if isinstance(e, OSError) and e.errno in (errno.EADDRINUSE, 10048):
-            self.conn = f"المنفذ {self.service.port} مستخدم — هل يعمل EskaBoard في نافذة أخرى؟"
+            self.conn = f"المنفذ {self.service.port} مستخدم — هل يعمل Eskali Board في نافذة أخرى؟"
         else:
             self.conn = f"تعذر تشغيل الخادم: {e}"
         self.input = ""
@@ -215,7 +215,7 @@ def _redirect_output():
 
 
 def _first_instance():
-    """False if EskaBoard already runs for this user (Windows named mutex)."""
+    """False if Eskali Board already runs for this user (Windows named mutex)."""
     global _mutex
     if sys.platform != "win32":
         return True
@@ -267,10 +267,10 @@ def run_webgui(host, port, dry_run, open_browser=True, expire_minutes=IDLE_EXPIR
         except OSError:
             url = ""
         if url:
-            print("EskaBoard is already running: opening its page")
+            print("Eskali Board is already running: opening its page")
             webbrowser.open(url)
         else:
-            print("EskaBoard is already running (still starting?)")
+            print("Eskali Board is already running (still starting?)")
         return 0
     _redirect_output()
     try:
