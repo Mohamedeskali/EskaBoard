@@ -69,7 +69,7 @@ class PhoneKBApp(Gtk.Application):
         self.window.present()
 
     def build_window(self):
-        win = Gtk.ApplicationWindow(application=self, title="EskaBoard")
+        win = Gtk.ApplicationWindow(application=self, title="Eskali Board")
         win.set_default_size(380, 580)
         win.connect("close-request", self.on_close_request)
 
@@ -99,7 +99,7 @@ class PhoneKBApp(Gtk.Application):
         self.new_btn.set_tooltip_text("رمز وصلاحية جديدان؛ يُفصل الهاتف المتصل بالرمز القديم")
         self.new_btn.connect("clicked", self.on_new_qr)
         self.copy_btn = Gtk.Button(label=COPY_LABEL)
-        self.copy_btn.set_tooltip_text("رابط الهاتف، لتطبيق EskaBoard على Android (فيه مفتاح التشفير: لا تشاركه)")
+        self.copy_btn.set_tooltip_text("رابط الهاتف، لتطبيق Eskali Board على Android (فيه مفتاح التشفير: لا تشاركه)")
         self.copy_btn.connect("clicked", self.on_copy_link)
         self.stop_btn = Gtk.Button(label="إيقاف")
         self.stop_btn.add_css_class("destructive-action")

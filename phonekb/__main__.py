@@ -1,4 +1,4 @@
-"""EskaBoard - main entry point."""
+"""Eskali Board - main entry point."""
 import argparse
 import asyncio
 import sys
@@ -32,7 +32,7 @@ def print_qr(url):
 
 def main():
     """Entry point."""
-    parser = argparse.ArgumentParser(description="EskaBoard: use your phone as a keyboard for this PC")
+    parser = argparse.ArgumentParser(description="Eskali Board: use your phone as a keyboard for this PC")
     parser.add_argument("--host", default=None, help="Host IP (default: auto-detect LAN IP)")
     parser.add_argument("--port", type=int, default=8765, help="Port (default: 8765)")
     parser.add_argument("--dry-run", action="store_true",
@@ -42,7 +42,7 @@ def main():
                              f"(default: {IDLE_EXPIRE_MINUTES}, 0: never)")
     parser.add_argument("--gui", action="store_true",
                         help="Open a window with the QR code (a page in the browser on Windows)")
-    parser.add_argument("--version", action="version", version=f"EskaBoard {__version__}")
+    parser.add_argument("--version", action="version", version=f"Eskali Board {__version__}")
     args = parser.parse_args()
 
     if sys.platform == "win32":
